@@ -155,13 +155,13 @@ namespace Infiks.Email
              * how the hell it's STANDART? die mime die
              */
 
-            Regex findchrstrgx = new Regex("charset=\"{0,1}(.*?)[\"\\;\\s\n]");
-            Match emlcharsetmth = findchrstrgx.Match(Content);
+            //Regex findchrstrgx = new Regex("charset=\"{0,1}(.*?)[\"\\;\\s\n]");
+            //Match emlcharsetmth = findchrstrgx.Match(Content);
             string emlcharset = null;
-            if (emlcharsetmth.Success)
-            {
-                emlcharset = emlcharsetmth.Groups[1].Value;
-            }
+            //if (emlcharsetmth.Success)
+            //{
+            //   emlcharset = emlcharsetmth.Groups[1].Value;
+            //}
 
             // Split email content on boundary
             //string[] parts = Content.Split(new[] { Boundary }, StringSplitOptions.RemoveEmptyEntries);
@@ -231,6 +231,10 @@ namespace Infiks.Email
                     continue;
                 }
 
+                //these are just whistles&bells, ignore them
+                if (header.Contains("Content-Disposition: inline")) 
+                    continue;
+
                 //string fileName = "test1";
                 /*******
                 
@@ -246,7 +250,18 @@ namespace Infiks.Email
                 string fileName = null;
                 string[] fileNameStrArr = null;
 
-                if (fileNameStr.IndexOf("=?" + emlcharset + "?", StringComparison.OrdinalIgnoreCase) != -1 )
+                //detect current encoding
+                var rgxchrst = new Regex(@"=\?(.*?)\?");
+                Match rgxchrmtch = rgxchrst.Match(fileNameStr);
+                
+                if (rgxchrmtch.Success)
+                {
+                    emlcharset = rgxchrmtch.Groups[1].Value;
+                }
+
+                //if (fileNameStr.IndexOf("=?" + emlcharset + "?", StringComparison.OrdinalIgnoreCase) != -1 )
+                if (emlcharset != null)
+                
                 {
                     //in filename we can have ==, ==?=, blank space and other cool stuff
                     // it gets more and more greater. When B, we can have ==?= so how dahell we distinguish between encoding and no-encoding?
@@ -279,7 +294,7 @@ namespace Infiks.Email
                         {
                             if (multistr != null)
                             {
-                                multistr = multistr.Insert(0, "=?UTF-8?Q?");
+                                multistr = multistr.Insert(0, "=?" + emlcharset + "?Q?");
                                 multistr = multistr.Insert(multistr.Length, "?=");
                                 System.Net.Mail.Attachment attdecode = System.Net.Mail.Attachment.CreateAttachmentFromString("", multistr);
                                 fileName += attdecode.Name;
@@ -306,7 +321,7 @@ namespace Infiks.Email
                         {
                             if (multistr != null)
                             {
-                                multistr = multistr.Insert(0, "=?UTF-8?Q?");
+                                multistr = multistr.Insert(0, "=?"+emlcharset+"?Q?");
                                 multistr = multistr.Insert(multistr.Length, "?=");
                                 System.Net.Mail.Attachment attdecode = System.Net.Mail.Attachment.CreateAttachmentFromString("", multistr);
                                 fileName += attdecode.Name;
@@ -320,14 +335,14 @@ namespace Infiks.Email
                     }
                     if (multistr != null)
                     {
-                        multistr = multistr.Insert(0, "=?UTF-8?Q?");
+                        multistr = multistr.Insert(0, "=?"+emlcharset+"?Q?");
                         multistr = multistr.Insert(multistr.Length, "?=");
                         System.Net.Mail.Attachment attdecode = System.Net.Mail.Attachment.CreateAttachmentFromString("", multistr);
                         fileName += attdecode.Name;
                         multistr = null;
                     }
                 }
-                //No encoding, just ASCII
+                //assume that we have no encoding, just ASCII
                 else
                 {
                     fileName = fileNameStr;
@@ -339,7 +354,7 @@ namespace Infiks.Email
                 if (fileName.IndexOf('=') != -1)
                 {
 
-                    Console.WriteLine("UTF filename reading error (filename still containing '=')");
+                    Console.WriteLine("filename reading error (filename still containing '=')");
                     Environment.Exit(2);
                 }
 
@@ -373,7 +388,9 @@ namespace Infiks.Email
                 }
 
                 // Successful conversion, add attachment to the list
+
                 attachments.Add(new Attachment(fileName, raw));
+              
             }
 
             //// Return all attachments found
@@ -389,13 +406,26 @@ namespace Infiks.Email
         {
             // Keep track of total number attachments
             int count = 0;
+            uint dfn = 1;
 
             // Extract each attachment
             foreach (var attachment in Attachments)
             {
                 // Write bytes to output file
+
                 string path = Path.Combine(outputDirectory, attachment.FileName);
-                File.WriteAllBytes(path, attachment.Content);
+                if (File.Exists(path))
+                {
+
+                    string tmpflnm = attachment.FileName.Insert(attachment.FileName.LastIndexOf("."), "_dfn" + (dfn++));
+                    path = null;
+                    path = Path.Combine(outputDirectory, tmpflnm);
+                    File.WriteAllBytes(path, attachment.Content);
+                }
+                else
+                {
+                    File.WriteAllBytes(path, attachment.Content);
+                }
                 count++;
             }
 
