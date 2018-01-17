@@ -38,6 +38,7 @@ namespace Infiks.Email
         /// <param name="args">One argument, the .eml file name.</param>
         static void Main(string[] args)
         {
+
             // Check arguments
             if (args.Length == 0 || args[0] == "/?")
             {

@@ -31,44 +31,6 @@ using System.Net.Mail;
 using System.Linq;
 
 
-    public static class MyExtensions
-    {
-        public static string ReplArrIgnoreCase(this string source, string[] repstrs, string repto)
-        {
-            //if (source. || oldVale.IsNullOrEmpty())
-            //    return source;
-
-            var stringBuilder = new StringBuilder();
-            string result = source;
-
-            foreach (string repval in repstrs)
-            {
-                //GC.Collect();
-
-                int index = result.IndexOf(repval, StringComparison.InvariantCultureIgnoreCase);
-
-                while (index >= 0)
-                {
-                    if (index > 0)
-                        stringBuilder.Append(result.Substring(0, index));
-
-                    //if (repto.IsNullOrEmpty().IsNot())
-                    stringBuilder.Append(repto);
-
-                    stringBuilder.Append(result.Substring(index + repval.Length));
-
-                    result = stringBuilder.ToString();
-
-                    index = result.IndexOf(repval, StringComparison.InvariantCultureIgnoreCase);
-
-                }
-            }
-
-            return result;
-        }
-    }
-
-
 namespace Infiks.Email
 {
         
@@ -202,12 +164,17 @@ namespace Infiks.Email
             }
 
             // Split email content on boundary
-            string[] parts = Content.Split(new[] { Boundary }, StringSplitOptions.None);
+            //string[] parts = Content.Split(new[] { Boundary }, StringSplitOptions.RemoveEmptyEntries);
+            // we can have more than one boundaries so let's split by all of them
+            string[] parts = Content.Split(boundaries, StringSplitOptions.RemoveEmptyEntries);
 
             // Parse each part
             foreach (var part in parts)
             {
 
+                //it's not attachment so we do not need it
+                if (!part.Contains("filename=")) continue;
+                
                 // Split on two new line chars to distinguish header and content
                 string[] headerAndContent = part.Trim(new[] { '\r', '\n', '-', ' ', '\t' })
                     .Split(new[] { Environment.NewLine + Environment.NewLine }, StringSplitOptions.None);
@@ -228,16 +195,16 @@ namespace Infiks.Email
                     if (headerAndContent.Length > 2)
                     {
 
-                        Console.WriteLine("Attachment struct issue (possibly redundant CRLF)");
+                       Console.WriteLine("Attachment struct issue (possibly redundant CRLF)");
                         //like a SWEABORG
-                        if (part.IndexOf("==") != -1)
-                        {
+                        //if (part.IndexOf("==") != -1)
+                        //{
                             var tmp = part.IndexOf(headerAndContent[1]);
-                            var tmp2 = (part.IndexOf("==\r\n") + 2) - tmp;
-                            headerAndContent[1] = part.Substring(tmp, tmp2);
+                            //var tmp2 = (part.IndexOf("==\r\n") + 2) - tmp;
+                            headerAndContent[1] = part.Substring(tmp, (part.Length - tmp));
                             Array.Resize(ref headerAndContent, 2);
                             GC.Collect();
-                        }
+                        //}
                         //THEREIFIXEDIT. Now it's slow like a slowpoke.
                     }
                     else
