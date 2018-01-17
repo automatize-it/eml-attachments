@@ -1,0 +1,8 @@
+> there can be first boundary at the end of file
+> there can be more than one boundary. Partially fixed
+> get data (month/year)
+
+V Check for attachments exist
+V case issue Q and B
+V output dir change
+> tests
