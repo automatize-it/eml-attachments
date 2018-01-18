@@ -6,8 +6,8 @@ usage for now: eml-attachments file.eml (outputdirectory)
 
 Fork erikvdv1/eml-attachments respectively.
 Added many improvements in handling:
-> encodings 
-> MIME idiotic formatting
+- encodings 
+- MIME idiotic formatting
 
 Uses .NET 4.0
 
