@@ -1,6 +1,6 @@
 > "ignorewhistles" option
 V added handling when no "filename" present, just "name"
-V fixed "name" handling
+V fixed "name" handling 
 
 V add files rewriting policy and keys: there can be attachments with same names
 V there can be first boundary at the end of file
