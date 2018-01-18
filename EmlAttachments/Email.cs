@@ -173,7 +173,9 @@ namespace Infiks.Email
             {
 
                 //it's not attachment so we do not need it
-                if (!part.Contains("filename=")) continue;
+                // Good news everyone: some servers can just ignore "filename" and set only "name"
+                if (!part.Contains("filename=") && !part.Contains("name=") ) 
+                    continue;
                 
                 // Split on two new line chars to distinguish header and content
                 string[] headerAndContent = part.Trim(new[] { '\r', '\n', '-', ' ', '\t' })
@@ -227,8 +229,22 @@ namespace Infiks.Email
                 Match match = regex.Match(header);
                 if (!match.Success)
                 {
-                    //Console.WriteLine("File name not found – possibly incorrect filename field formatting");
-                    continue;
+                    //idiotic mime, idiotic server, something else, but they decided to not add "filename"
+                    if (header.Contains("attachment"))
+                    {
+
+                        Regex flnmaltrgx = new Regex("(?<=name=)(.|\n|\t){0,3}\"((.|\n|\t)*?)\"");
+                        match = flnmaltrgx.Match(header);
+                        if (!match.Success)
+                        {
+
+                            continue;
+                        }
+                    }
+                    else
+                        continue;
+                       
+                    
                 }
 
                 //these are just whistles&bells, ignore them
@@ -246,6 +262,7 @@ namespace Infiks.Email
                  * UPDATE: there can be more than one type (Q or B) in one string AND ALSO NON ENCODED NOT MARKED ASCII SYMBOLS. Fuck this, MIME really should die.
                  
                  ******/
+                
                 string fileNameStr = match.Groups[2].Value;
                 string fileName = null;
                 string[] fileNameStrArr = null;
@@ -287,9 +304,9 @@ namespace Infiks.Email
                                 fileName += attdecode.Name;
 
                             }
-                            //fileName += '_';
+                            
                         }
-                        //Assume it's ?B? WE FUKEEN CANNOT ELSE
+                        
                         if (tmpstr3.IndexOf("?B?", 0, StringComparison.OrdinalIgnoreCase) != -1)
                         {
                             if (multistr != null)
@@ -312,9 +329,9 @@ namespace Infiks.Email
                                 tmpstr5 += "=";
                             }
                             */
+
                             fileNameRaw = System.Convert.FromBase64String(tmpstr5);
                             fileName += System.Text.Encoding.GetEncoding(emlcharset).GetString(fileNameRaw);
-                            //fileName += "_";
                         }
 
                         if (tmpstr3.IndexOf("?Q?", 0, StringComparison.OrdinalIgnoreCase) == -1 && tmpstr3.IndexOf("?B?", 0, StringComparison.OrdinalIgnoreCase) == -1)
