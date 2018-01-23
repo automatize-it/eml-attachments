@@ -42,6 +42,8 @@ namespace Infiks.Email
         /// <summary>
         /// The original file name of the .eml file.
         /// </summary>
+        
+        int attstart = 0;
         public string FileName { private set; get; }
         public string[] boundaries = new string[1];
 
@@ -98,8 +100,6 @@ namespace Infiks.Email
 
         }
 
-        
-
         /// <summary>
         /// Tries to find the boundary string in the .eml file.
         /// </summary>
@@ -133,6 +133,34 @@ namespace Infiks.Email
         private string GetContent()
         {
             return File.ReadAllText(FileName);
+        }
+
+        private string convstr(string origstr)
+        {
+            
+            Encoding unicode = Encoding.Unicode;
+
+            Regex findchrstrgx = new Regex("charset=\"{0,1}(.*?)[\"\\;\\s\n]");
+            
+            Match emlcharsetmth = findchrstrgx.Match(Content);
+            string emlcharset = null;
+            if (emlcharsetmth.Success)
+            {
+               emlcharset = emlcharsetmth.Groups[1].Value;
+            }
+
+            Encoding currenc = Encoding.GetEncoding(emlcharset);
+
+            // Convert the string into a byte array.
+            byte[] unicodeBytes = unicode.GetBytes(origstr);
+
+            // Perform the conversion from one encoding to the other.
+            byte[] tmpBytes = Encoding.Convert(unicode, currenc, unicodeBytes);
+
+            // Convert the new byte[] into a char[] and then into a string.
+            char[] tmpChars = new char[currenc.GetCharCount(tmpBytes, 0, tmpBytes.Length)];
+            currenc.GetChars(tmpBytes, 0, tmpBytes.Length, tmpChars, 0);
+            return new string(tmpChars);
         }
 
         /// <summary>
@@ -250,6 +278,9 @@ namespace Infiks.Email
                 //these are just whistles&bells, ignore them
                 if (header.Contains("Content-Disposition: inline")) 
                     continue;
+
+                if (attstart == 0) 
+                    attstart = Content.IndexOf(part);
 
                 //string fileName = "test1";
                 /*******
@@ -419,11 +450,13 @@ namespace Infiks.Email
         /// </summary>
         /// <param name="outputDirectory">The output directory.</param>
         /// <returns>The number of files saved.</returns>
-        public int SaveAttachments(string outputDirectory)
+        public int SaveAttachments(string outputDirectory, string bckppth)
         {
             // Keep track of total number attachments
             int count = 0;
             uint dfn = 1;
+
+            List<string> patches = new List<string> { };
 
             // Extract each attachment
             foreach (var attachment in Attachments)
@@ -431,20 +464,38 @@ namespace Infiks.Email
                 // Write bytes to output file
 
                 string path = Path.Combine(outputDirectory, attachment.FileName);
+
                 if (File.Exists(path))
                 {
 
                     string tmpflnm = attachment.FileName.Insert(attachment.FileName.LastIndexOf("."), "_dfn" + (dfn++));
                     path = null;
                     path = Path.Combine(outputDirectory, tmpflnm);
+                    if (attstart > 0) patches.Add(path.ToString());
                     File.WriteAllBytes(path, attachment.Content);
+
                 }
                 else
                 {
+                    if (attstart > 0) patches.Add(path.ToString());
                     File.WriteAllBytes(path, attachment.Content);
                 }
                 count++;
+
             }
+
+            if (attstart > 0 && bckppth != "")
+            {
+                string tmpcnt = Content.Substring(0, attstart);
+                tmpcnt += "\r\n\r\nAttachments:\r\n";
+                foreach (string pth in patches){
+                    tmpcnt += "file:///";
+                    tmpcnt += convstr(pth);
+                }
+                string path = Path.Combine(outputDirectory, "temp.eml");
+                File.WriteAllText(path, tmpcnt);  
+            }
+
 
             // Return count
             return count;

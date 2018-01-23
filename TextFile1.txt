@@ -1,0 +1,135 @@
+//tmpstr5 = Regex.Replace(tmpstr3, emlcharset, "", RegexOptions.IgnoreCase);
+                            //tmpstr5 = tmpstr5.Replace(emlcharset, null)
+                            //    .Replace("?B?", null)
+                            //    .Replace("?b?", null)
+                            //    .Replace("=?", null)
+                            //    .Replace("\"=?", null)
+                            //    .Replace("?=", null)
+                            //    .Replace(" ", "IA")
+                            //    .Replace("\r\n", null);
+
+//string tmpstr4 = null;
+                                //tmpstr3 = Regex.Replace(tmpstr3, emlcharset, "", RegexOptions.IgnoreCase);
+                                //multistr += tmpstr3.Replace("\r\n", null)
+                                //    .Replace("?Q?", null)
+                                //    .Replace("?q?", null)
+                                //    .Replace("\"=?", null)
+                                //    .Replace("?=", null)
+                                //    .Replace("=?", null)
+                                //    .Replace("\";", null)
+                                //    .Replace(emlcharset, null)
+                                //    .Replace(" ", null);
+
+/* fuck this
+                            regextmp = new Regex("[^a-zA-Z0-9\\+\\/]*");
+                            MatchCollection matchcoltmp = regextmp.Matches(headerAndContent[1]);
+                            //lets clean Base64 string
+                            foreach (Match tmpmatch in matchcoltmp)
+                            {
+                                    headerAndContent[1] = headerAndContent[1].Replace(tmpmatch.Value, null);
+                            }
+                            */
+
+						/*
+                    //fast ugly workaround
+                    Array.Resize(ref headerAndContent, 2);
+                    Array.Clear(headerAndContent,0,headerAndContent.Length);
+                    GC.Collect();
+                    if (part.IndexOf("size=") != -1)
+                    {
+                        headerAndContent[0] = part.Substring(0,part.IndexOf("size="));
+                        headerAndContent[1] = part.Substring(part.IndexOf("size="));
+                        //with lazy quantifier it gets only "size="
+                        Regex regextmp = new Regex("size=[0-9]*");
+                        Match matchtmp = regextmp.Match(headerAndContent[1]);
+                        if (matchtmp.Success)
+                        {
+                            headerAndContent[1] = headerAndContent[1].Replace(matchtmp.Groups[0].Value, null);
+                            headerAndContent[1] = headerAndContent[1].Replace("\r\n", null);
+                            GC.Collect();
+
+                            
+                            //cool, system.outofmemory exception
+                            //headerAndContent[1] = headerAndContent[1].Replace("-", null);
+                             
+                            
+                        }
+                    }
+                    else
+                    { */
+                    
+                    //}
+
+					/*
+                        string tmpstr = null;
+                        for (var i = 1; i < headerAndContent.Length; i++) {
+                            
+                            tmpstr += headerAndContent[i].Replace("\r\n",null);
+                        }
+                        */
+					/*
+                                tmpstr4 = tmpstr4.Replace("=?UTF-8?Q?", null);
+                                tmpstr4 = tmpstr4.Replace("=?UTF-8?q?", null);
+                                tmpstr4 = tmpstr4.Replace("?=", null);
+                                tmpstr4 = tmpstr4.Replace(" ", null);
+                                */
+/*
+                Regex regexUTFQ = new Regex("=\\?(.*?)\\?(q|Q)\\?");
+                Match matchUTFQ = regexUTFQ.Match(fileNameStr);
+
+                if (matchUTFQ.Success)
+                {
+                    if (fileNameStr.IndexOf("\r\n") != -1)
+                    {
+                        fileNameStr = fileNameStr.Replace("\r\n", null);
+                        fileNameStr = fileNameStr.Replace("=?UTF-8?Q?", null); fileNameStr = fileNameStr.Replace("=?UTF-8?q?", null);
+                        fileNameStr = fileNameStr.Replace("?=", null);
+                        fileNameStr = fileNameStr.Replace(" ", null);
+                        fileNameStr = fileNameStr.Insert(0, "=?UTF-8?Q?"); fileNameStr = fileNameStr.Insert(fileNameStr.Length, "?=");
+                        System.Net.Mail.Attachment attdecode = System.Net.Mail.Attachment.CreateAttachmentFromString("", fileNameStr);
+                        fileName = attdecode.Name;
+                    }
+                    else
+                    {
+                        System.Net.Mail.Attachment attdecode = System.Net.Mail.Attachment.CreateAttachmentFromString("", fileNameStr);
+                        fileName = attdecode.Name;
+                    }
+
+                }
+                else {
+                    
+                    byte[] fileNameRaw = null;
+                    string tmpenc = null;
+
+                    fileNameStrArr = fileNameStr.Split(' ');
+
+                    foreach (var tmpstr in fileNameStrArr)
+                    {
+
+                        if (tmpstr.IndexOf("=?") != -1)
+                        {
+                            string tmpstr2 = null;
+                            Regex regex2 = new Regex("=\\?(.*?)\\?(b|B)\\?");
+                            Match match2 = regex2.Match(tmpstr);
+                            if (match2.Success)
+                            {
+                                tmpenc = match2.Groups[1].Value;
+                                tmpstr2 = tmpstr.Replace("=?" + tmpenc + "?b?", null);
+                                tmpstr2 = tmpstr2.Replace("?=", null);
+                                tmpstr2 = tmpstr2.Replace(" ", "IA");
+                                tmpstr2 = tmpstr2.Replace("\r\n", null);
+                                fileNameRaw = System.Convert.FromBase64String(tmpstr2);
+                                fileName += System.Text.Encoding.GetEncoding(tmpenc).GetString(fileNameRaw);
+                            }
+
+                        }
+                        else
+                        {
+
+                            fileName += tmpstr;
+                            fileName += "_";
+                        }
+                    }
+
+                }
+                */

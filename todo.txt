@@ -1,4 +1,8 @@
+> add args check
+? when it's whitespace btwn two differenlty encoded name part's it'll be ignored. Not sure how to fix or is it neccessary 
 > "ignorewhistles" option
+
+
 V added handling when no "filename" present, just "name"
 V fixed "name" handling 
 

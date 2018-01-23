@@ -24,6 +24,7 @@
 #endregion
 using System;
 using System.IO;
+using System.Linq;
 
 namespace Infiks.Email
 {
@@ -36,39 +37,74 @@ namespace Infiks.Email
         /// Entrypoint.
         /// </summary>
         /// <param name="args">One argument, the .eml file name.</param>
+        
+        
         static void Main(string[] args)
         {
 
+            /*
+             * -i – input file
+             * -o – output dir
+             * --deletefromorigin – cut attachments from eml file
+             * YES – parameter for --deletefromorigin
+             * -b – dir to place original file if -deletefromorigin
+             */
+            string[] argsset = { "-i", "-o", "--deletefromorigin", "YES", "-b" };
+
             // Check arguments
-            if (args.Length == 0 || args[0] == "/?")
+            if (args.Length == 0 || args[0] == "/?" || (!args.Contains(argsset[0])))
             {
                 WriteHelp();
                 return;
             }
 
+            string fileName = args[(Array.FindIndex(args, tmp => args.Contains(argsset[0]))) + 1];
+            
+            string outpath = "";
+            string bckppath = "";
+
+            //int i = (Array.FindIndex(args, row => row.Contains(argsset[1])));
+
+            if (args.Contains(argsset[1]))
+                outpath = args[(Array.FindIndex(args, tmp => tmp.Contains(argsset[1]))) + 1];
+
+            if (args.Contains(argsset[2]))
+            {
+                if (args[(Array.FindIndex(args, tmp => tmp.Contains(argsset[2]))) + 1] != argsset[3] || !args.Contains(argsset[4]) )
+                {
+                    
+                    Console.WriteLine("Not sure what you're doing? Then better not.");
+                    return;
+                }
+                bckppath = args[(Array.FindIndex(args, tmp => tmp.Contains(argsset[4]))) + 1];
+            }
+            
             // Check if file exists
-            string fileName = args[0];
+            //string fileName = args[0];
+            /*
             string outpath = null;
             if (args.Length > 1)
             {
                 outpath = args[1];
             }
+             */
             if (!File.Exists(fileName))
             {
                 Console.WriteLine("Cannot find file: {0}.", fileName);
                 return;
             }
+             
 
             // Extract attachments
             Email email = new Email(fileName);
             int count;
-            if (args.Length > 1)
+            if ( outpath != "" )
             {
-                count = email.SaveAttachments(Path.GetFullPath(outpath));
+                count = email.SaveAttachments(Path.GetFullPath(outpath),bckppath);
             }
             else
             {
-                count = email.SaveAttachments(Path.GetDirectoryName(fileName));
+                count = email.SaveAttachments(Path.GetDirectoryName(fileName),bckppath);
             }
             Console.WriteLine("{0} attachments extracted.", count);
         }
@@ -81,7 +117,7 @@ namespace Infiks.Email
             String assemblyName = System.Reflection.Assembly.GetEntryAssembly().GetName().Name;
             Console.WriteLine("Extracts the attachments of an .eml file.");
             Console.WriteLine();
-            Console.WriteLine(@"{0} drive:\path\to\eml\file (output\dir)", assemblyName);
+            Console.WriteLine(@"{0} -i path\to\eml\file (-o output\dir) (--deletefromorigin YES -b backup\path)", assemblyName);
         }
         
         
