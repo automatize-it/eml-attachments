@@ -135,6 +135,55 @@ namespace Infiks.Email
             return File.ReadAllText(FileName);
         }
 
+        private string EncodeQuotedPrintable(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return value;
+
+            StringBuilder builder = new StringBuilder();
+
+            Regex findchrstrgx = new Regex("charset=\"{0,1}(.*?)[\"\\;\\s\n]");
+            
+            Match emlcharsetmth = findchrstrgx.Match(Content);
+            string emlcharset = null;
+            if (emlcharsetmth.Success)
+            {
+                emlcharset = emlcharsetmth.Groups[1].Value;
+            }
+
+            Encoding currenc = Encoding.GetEncoding(emlcharset);
+            currenc = Encoding.GetEncoding(866);
+
+            byte[] bytes = currenc.GetBytes(value);
+            foreach (byte v in bytes)
+            {
+                // The following are not required to be encoded:
+                // - Tab (ASCII 9)
+                // - Space (ASCII 32)
+                // - Characters 33 to 126, except for the equal sign (61).
+
+                if ((v == 9) || ((v >= 32) && (v <= 60)) || ((v >= 62) && (v <= 126)))
+                {
+                    builder.Append(Convert.ToChar(v));
+                }
+                else
+                {
+                    builder.Append('=');
+                    builder.Append(v.ToString("X2"));
+                }
+            }
+
+            char lastChar = builder[builder.Length - 1];
+            if (char.IsWhiteSpace(lastChar))
+            {
+                builder.Remove(builder.Length - 1, 1);
+                builder.Append('=');
+                builder.Append(((int)lastChar).ToString("X2"));
+            }
+
+            return builder.ToString();
+        }
+
         private string convstr(string origstr)
         {
             
@@ -150,6 +199,8 @@ namespace Infiks.Email
             }
 
             Encoding currenc = Encoding.GetEncoding(emlcharset);
+
+            currenc = Encoding.GetEncoding(866);
 
             // Convert the string into a byte array.
             byte[] unicodeBytes = unicode.GetBytes(origstr);
@@ -484,14 +535,23 @@ namespace Infiks.Email
 
             }
 
-            if (attstart > 0 && bckppth != "")
+            if (attstart > 0) //&& bckppth != ""
             {
-                string tmpcnt = Content.Substring(0, attstart);
-                tmpcnt += "\r\n\r\nAttachments:\r\n";
+
+                string tmpcnt = Content.Substring(0, attstart) + "\r\nContent-Type: text/html;\r\ncharset=\"cp866\"\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n";
+
+                string tmpcnt2 = "\r\n\r\nВложения:<br><br>";
                 foreach (string pth in patches){
-                    tmpcnt += "file:///";
-                    tmpcnt += convstr(pth);
+                    tmpcnt2 += "<b>" + pth.Substring(pth.LastIndexOf("\\") + 1) + "</b><br>";
+                    tmpcnt2 += " В офисе: ";
+                    tmpcnt2 += "<a href=\"file:///" + pth + "\">открыть файл</a> ";
+                    tmpcnt2 += "<a href=\"file:///" + pth.Substring(0, pth.LastIndexOf("\\")) + "\">открыть папку</a><br>";
+                    tmpcnt2 += "Вне офиса: <a href=\"ftp://" + pth + "\">скачать</a><br><br>"; 
+
+                    
                 }
+                tmpcnt2 = convstr(tmpcnt2);
+                tmpcnt += EncodeQuotedPrintable(tmpcnt2);
                 string path = Path.Combine(outputDirectory, "temp.eml");
                 File.WriteAllText(path, tmpcnt);  
             }

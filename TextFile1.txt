@@ -1,3 +1,10 @@
+/*
+                    tmpbts = Encoding.GetEncoding(65001).GetBytes(pth);
+                    tmpbts = Encoding.Convert(Encoding.GetEncoding(65001), Encoding.GetEncoding(866), tmpbts);
+                    tmpcnt += Convert.ToBase64String(tmpbts);
+                    tmpcnt += "?=\r\n";
+                    */
+
 //tmpstr5 = Regex.Replace(tmpstr3, emlcharset, "", RegexOptions.IgnoreCase);
                             //tmpstr5 = tmpstr5.Replace(emlcharset, null)
                             //    .Replace("?B?", null)
