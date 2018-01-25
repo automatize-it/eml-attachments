@@ -1,3 +1,5 @@
+> do final atts relocating
+> check if output dir and backup dir are the same
 > add args check
 ? when it's whitespace btwn two differenlty encoded name part's it'll be ignored. Not sure how to fix or is it neccessary 
 > "ignorewhistles" option

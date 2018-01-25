@@ -214,6 +214,25 @@ namespace Infiks.Email
             return new string(tmpChars);
         }
 
+        private string[] getdateMyyyy() {
+
+            Regex finddatergx = new Regex("Date:(.*)");
+            Match datemth = finddatergx.Match(Content);
+
+            string msgmonthyear = "";
+
+            if (!datemth.Success)
+            {
+                Console.WriteLine("Date error");
+            }
+
+            //split by " ", elements index 2 and 3
+            msgmonthyear = datemth.Groups[1].Value;
+            string[] strarr = msgmonthyear.Split(' ');
+
+            return strarr;
+        }
+
         /// <summary>
         /// Tries to find the attachments encoded as Base64 in the .eml file.
         /// </summary>
@@ -501,26 +520,43 @@ namespace Infiks.Email
         /// </summary>
         /// <param name="outputDirectory">The output directory.</param>
         /// <returns>The number of files saved.</returns>
-        public int SaveAttachments(string outputDirectory, string bckppth)
+        public int SaveAttachments(string outputDirectory, string bckppth, bool sort)
         {
             // Keep track of total number attachments
             int count = 0;
             uint dfn = 1;
 
             List<string> patches = new List<string> { };
+            string[] tmpdate = new string[2];
+            string path = "";
+            string tmpoutdir = outputDirectory;
+
+            if (sort)
+            {
+                //year
+                tmpdate[0] = (getdateMyyyy())[4];
+                //month
+                tmpdate[1] = (getdateMyyyy())[3];
+
+                string tmppth = outputDirectory + "\\" + tmpdate[0] + "\\" + tmpdate[1];
+                if (!Directory.Exists(tmppth)) Directory.CreateDirectory(tmppth);
+                outputDirectory += "\\" + tmpdate[0] + "\\" + tmpdate[1];
+            }
+
 
             // Extract each attachment
             foreach (var attachment in Attachments)
             {
                 // Write bytes to output file
 
-                string path = Path.Combine(outputDirectory, attachment.FileName);
+                path = Path.Combine(outputDirectory, attachment.FileName);
 
                 if (File.Exists(path))
                 {
 
                     string tmpflnm = attachment.FileName.Insert(attachment.FileName.LastIndexOf("."), "_dfn" + (dfn++));
                     path = null;
+                    //if (sort) outputDirectory += "\\" + tmpdate[0] + "\\" + tmpdate[1];
                     path = Path.Combine(outputDirectory, tmpflnm);
                     if (attstart > 0) patches.Add(path.ToString());
                     File.WriteAllBytes(path, attachment.Content);
@@ -552,8 +588,8 @@ namespace Infiks.Email
                 }
                 tmpcnt2 = convstr(tmpcnt2);
                 tmpcnt += EncodeQuotedPrintable(tmpcnt2);
-                string path = Path.Combine(outputDirectory, "temp.eml");
-                File.WriteAllText(path, tmpcnt);  
+                string path2 = Path.Combine(tmpoutdir, "temp.eml");
+                File.WriteAllText(path2, tmpcnt);  
             }
 
 

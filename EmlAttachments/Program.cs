@@ -49,7 +49,7 @@ namespace Infiks.Email
              * YES – parameter for --deletefromorigin
              * -b – dir to place original file if -deletefromorigin
              */
-            string[] argsset = { "-i", "-o", "--deletefromorigin", "YES", "-b" };
+            string[] argsset = { "-i", "-o", "--deletefromorigin", "YES", "-b", "--sortbyMyyyy" };
 
             // Check arguments
             if (args.Length == 0 || args[0] == "/?" || (!args.Contains(argsset[0])))
@@ -62,6 +62,7 @@ namespace Infiks.Email
             
             string outpath = "";
             string bckppath = "";
+            bool sort = false;
 
             //int i = (Array.FindIndex(args, row => row.Contains(argsset[1])));
 
@@ -78,6 +79,8 @@ namespace Infiks.Email
                 }
                 bckppath = args[(Array.FindIndex(args, tmp => tmp.Contains(argsset[4]))) + 1];
             }
+
+            if (args.Contains(argsset[5])) sort = true; 
             
             // Check if file exists
             //string fileName = args[0];
@@ -100,11 +103,11 @@ namespace Infiks.Email
             int count;
             if ( outpath != "" )
             {
-                count = email.SaveAttachments(Path.GetFullPath(outpath),bckppath);
+                count = email.SaveAttachments(Path.GetFullPath(outpath),bckppath,sort);
             }
             else
             {
-                count = email.SaveAttachments(Path.GetDirectoryName(fileName),bckppath);
+                count = email.SaveAttachments(Path.GetDirectoryName(fileName),bckppath,sort);
             }
             Console.WriteLine("{0} attachments extracted.", count);
         }
