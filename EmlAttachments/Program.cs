@@ -120,7 +120,7 @@ namespace Infiks.Email
             String assemblyName = System.Reflection.Assembly.GetEntryAssembly().GetName().Name;
             Console.WriteLine("Extracts the attachments of an .eml file.");
             Console.WriteLine();
-            Console.WriteLine(@"{0} -i path\to\eml\file (-o output\dir) (--deletefromorigin YES -b backup\path)", assemblyName);
+            Console.WriteLine(@"{0} -i path\to\eml\file (-o output\dir) (--deletefromorigin YES -b backup\path) (--sortbyMyyyy)", assemblyName);
         }
         
         

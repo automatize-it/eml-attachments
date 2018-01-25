@@ -200,7 +200,7 @@ namespace Infiks.Email
 
             Encoding currenc = Encoding.GetEncoding(emlcharset);
 
-            currenc = Encoding.GetEncoding(866);
+            currenc = Encoding.GetEncoding(65001);
 
             // Convert the string into a byte array.
             byte[] unicodeBytes = unicode.GetBytes(origstr);
@@ -571,10 +571,12 @@ namespace Infiks.Email
 
             }
 
-            if (attstart > 0) //&& bckppth != ""
+            if (attstart > 0 && bckppth != "") //
             {
+                File.Copy(FileName, Path.Combine(bckppth,FileName));
 
-                string tmpcnt = Content.Substring(0, attstart) + "\r\nContent-Type: text/html;\r\ncharset=\"cp866\"\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n";
+
+                string tmpcnt = Content.Substring(0, attstart) + "\r\nContent-Type: text/html;\r\ncharset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n";
 
                 string tmpcnt2 = "\r\n\r\nВложения:<br><br>";
                 foreach (string pth in patches){
@@ -586,9 +588,10 @@ namespace Infiks.Email
 
                     
                 }
-                tmpcnt2 = convstr(tmpcnt2);
+                //tmpcnt2 = convstr(tmpcnt2);
                 tmpcnt += EncodeQuotedPrintable(tmpcnt2);
-                string path2 = Path.Combine(tmpoutdir, "temp.eml");
+                File.Delete(FileName);
+                string path2 = Path.Combine(tmpoutdir, FileName);
                 File.WriteAllText(path2, tmpcnt);  
             }
 
