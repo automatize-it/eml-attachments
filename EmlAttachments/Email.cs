@@ -135,24 +135,43 @@ namespace Infiks.Email
             return File.ReadAllText(FileName);
         }
 
-        private string EncodeQuotedPrintable(string value)
+        private string gettxtcharset() {
+
+            Regex findchrstrgx = new Regex("charset=\"{0,1}(.*?)[\"\\;\\s\n]");
+
+            Match emlcharsetmth = findchrstrgx.Match(Content.Substring(0, attstart));
+            string emlcharset = null;
+            if (emlcharsetmth.Success)
+            {
+                emlcharset = emlcharsetmth.Groups[1].Value;
+                //emlcharsetmth = emlcharsetmth.NextMatch();
+            }
+
+            return emlcharset;
+        }
+
+        private string gettxttransferenc(string tmppart)
+        {
+
+            Regex findchrstrgx = new Regex("Content-transfer-encoding: \"{0,1}(.*?)[\"\\;\\s\n]", RegexOptions.IgnoreCase);
+
+            Match trnfenctmth = findchrstrgx.Match(tmppart);
+            string trnfenc = null;
+            if (trnfenctmth.Success)
+                trnfenc = trnfenctmth.Groups[1].Value;
+
+            return trnfenc;
+        }
+
+        private string EncodeQuotedPrintable(string value, string chrst)
         {
             if (string.IsNullOrEmpty(value))
                 return value;
 
             StringBuilder builder = new StringBuilder();
 
-            Regex findchrstrgx = new Regex("charset=\"{0,1}(.*?)[\"\\;\\s\n]");
-            
-            Match emlcharsetmth = findchrstrgx.Match(Content);
-            string emlcharset = null;
-            if (emlcharsetmth.Success)
-            {
-                emlcharset = emlcharsetmth.Groups[1].Value;
-            }
-
-            Encoding currenc = Encoding.GetEncoding(emlcharset);
-            currenc = Encoding.GetEncoding(866);
+            Encoding currenc = Encoding.GetEncoding(chrst);
+            //currenc = Encoding.GetEncoding(65001);
 
             byte[] bytes = currenc.GetBytes(value);
             foreach (byte v in bytes)
@@ -184,29 +203,65 @@ namespace Infiks.Email
             return builder.ToString();
         }
 
-        private string convstr(string origstr)
+        public static string DecodeQuotedPrintable(string input, string charSet)
         {
             
-            Encoding unicode = Encoding.Unicode;
+            Encoding enc;
 
-            Regex findchrstrgx = new Regex("charset=\"{0,1}(.*?)[\"\\;\\s\n]");
-            
-            Match emlcharsetmth = findchrstrgx.Match(Content);
-            string emlcharset = null;
-            if (emlcharsetmth.Success)
+            try
             {
-               emlcharset = emlcharsetmth.Groups[1].Value;
+                enc = Encoding.GetEncoding(charSet);
+            }
+            catch
+            {
+                enc = new UTF8Encoding();
             }
 
-            Encoding currenc = Encoding.GetEncoding(emlcharset);
+            input = input.Replace("=\r\n=", "=");
+            input = input.Replace("=\r\n ", "\r\n ");
+            input = input.Replace("= \r\n", " \r\n");
+            var occurences = new Regex(@"(=[0-9A-Z]{2})", RegexOptions.Multiline); //{1,}
+            var matches = occurences.Matches(input);
 
-            currenc = Encoding.GetEncoding(65001);
+            foreach (Match match in matches)
+            {
+                try
+                {
+                    byte[] b = new byte[match.Groups[0].Value.Length / 3];
+                    for (int i = 0; i < match.Groups[0].Value.Length / 3; i++)
+                    {
+                        b[i] = byte.Parse(match.Groups[0].Value.Substring(i * 3 + 1, 2), System.Globalization.NumberStyles.AllowHexSpecifier);
+                    }
+                    char[] hexChar = enc.GetChars(b);
+                    input = input.Replace(match.Groups[0].Value, new String(hexChar));
+                    
+                    
+                    GC.Collect();
+                }
+                catch
+                { Console.WriteLine("QP dec err"); }
+            }
+            input = input.Replace("?=", ""); //.Replace("\r\n", "");
+
+            return input;
+        }
+
+        private string convstr(string origstr, string inchrst, string outchrst)
+        {
+            
+            //Encoding unicode = Encoding.Unicode;
+
+            Encoding destenc = Encoding.GetEncoding(outchrst);
+
+            Encoding currenc = Encoding.GetEncoding(inchrst);
+
+            //currenc = Encoding.GetEncoding(65001);
 
             // Convert the string into a byte array.
-            byte[] unicodeBytes = unicode.GetBytes(origstr);
+            byte[] Bytes = currenc.GetBytes(origstr);
 
             // Perform the conversion from one encoding to the other.
-            byte[] tmpBytes = Encoding.Convert(unicode, currenc, unicodeBytes);
+            byte[] tmpBytes = Encoding.Convert(currenc, destenc, Bytes);
 
             // Convert the new byte[] into a char[] and then into a string.
             char[] tmpChars = new char[currenc.GetCharCount(tmpBytes, 0, tmpBytes.Length)];
@@ -403,7 +458,6 @@ namespace Infiks.Email
                             {
                                 System.Net.Mail.Attachment attdecode = System.Net.Mail.Attachment.CreateAttachmentFromString("", tmpstr3);
                                 fileName += attdecode.Name;
-
                             }
                             
                         }
@@ -524,7 +578,6 @@ namespace Infiks.Email
         {
             // Keep track of total number attachments
             int count = 0;
-            uint dfn = 1;
 
             List<string> patches = new List<string> { };
             string[] tmpdate = new string[2];
@@ -548,6 +601,7 @@ namespace Infiks.Email
             foreach (var attachment in Attachments)
             {
                 // Write bytes to output file
+                uint dfn = 1;
 
                 path = Path.Combine(outputDirectory, attachment.FileName);
 
@@ -571,28 +625,191 @@ namespace Infiks.Email
 
             }
 
+
+            //and yes, I know, this code looks like shit. Still, it works.
             if (attstart > 0 && bckppth != "") //
             {
                 File.Copy(FileName, Path.Combine(bckppth,FileName));
 
+                string tmpchrst = gettxtcharset();
+                string outchrst = "utf-8";
+                
+                /*
+                 * Well, this is great.
+                 * Just figured out that Content-type can be before from, to, subj...
+                 * Why not, really, this standart is completely ruined already,
+                 * let's put anything anywhere.
+                 */
+                string[] parts = Content.Substring(0, attstart).Split(boundaries, StringSplitOptions.RemoveEmptyEntries);
 
-                string tmpcnt = Content.Substring(0, attstart) + "\r\nContent-Type: text/html;\r\ncharset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n";
+                string bettereml = parts[0];
 
-                string tmpcnt2 = "\r\n\r\nВложения:<br><br>";
-                foreach (string pth in patches){
+                if (!parts[1].Contains("boundary=") && !parts[1].Contains("Content-Type:")) {
+
+                    bettereml += parts[1];
+                }
+                string[] mimekeystoremove = { "Content-Type:.*", "boundary=.*", "X-(?!Envelope).*", "charset=.*", "Content-Transfer-Encoding:.*", "This is a multi-part message in MIME format.*" };
+
+                foreach ( string fltr in mimekeystoremove ) {
+
+                    Regex rgx = new Regex(fltr); 
+                    bettereml = rgx.Replace(bettereml, "");
+                }
+
+                Regex rgx100 = new Regex("[\r\n]{1,}\t{0,1}[\r\n]{1,}");
+                bettereml = rgx100.Replace(bettereml, "\r\n");
+
+                //string bettereml = Content.Substring(0, Content.IndexOf("Content-Type:"));
+                
+                bettereml = bettereml.Trim(new[] { '\r', '\n', '-', ' ', '\t' });
+                bettereml += "\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: binary\r\n\r\n";
+                //string tmpcnt = Content.Substring(0, attstart); 
+
+                
+                //string tmpcnt = Content.Substring(Content.IndexOf("boundary", attstart); 
+
+                //if ( parts.Contains("text/plain") )
+                if ( parts.Any(s => s.Contains("text/plain")) )
+                {
+                    
+                    int i = Array.FindIndex(parts, tmp => tmp.Contains("text/plain"));
+                    string tmpeml = parts[i];
+
+                    string trnenc = gettxttransferenc(tmpeml);
+                    
+                    bettereml += "<html><head><meta charset=\"UTF-8\" /></head><body>";
+
+                    if (trnenc.IndexOf("quoted-printable", StringComparison.OrdinalIgnoreCase) == -1 && trnenc.IndexOf("base64", StringComparison.OrdinalIgnoreCase) == -1)
+                    {
+                        //just plain text, maybe
+                        tmpeml = convstr(tmpeml, tmpchrst, outchrst);
+                        //bettereml += EncodeQuotedPrintable(tmpeml, outchrst);
+                        //tmpeml = Regex.Replace(tmpeml, ".{76}(?!$)", "$0<br>");
+                        bettereml += tmpeml;
+                    }
+                    else
+                    {
+                        if (trnenc.IndexOf("quoted-printable", StringComparison.OrdinalIgnoreCase) != -1)
+                        {
+                            tmpeml = tmpeml.Substring(tmpeml.IndexOf("\r\n\r\n")+4, tmpeml.Length - tmpeml.IndexOf("\r\n\r\n")-4);
+                            
+                            tmpeml = DecodeQuotedPrintable(tmpeml, tmpchrst);
+                            
+                            Regex rgx = new Regex("charset=.*?>");
+                            tmpeml = rgx.Replace(tmpeml, "charset=3D\"UTF-8\">");
+                            Regex rgx2 = new Regex("(\r\n){3,}");
+                            tmpeml = rgx2.Replace(tmpeml, "\r\n\r\n");
+                            
+                            tmpeml = tmpeml.Replace("\r\n", "<br>");
+                            bettereml += tmpeml;
+                        }
+                        if (trnenc.IndexOf("base64", StringComparison.OrdinalIgnoreCase) != -1)
+                        {
+                            tmpeml = tmpeml.Substring(tmpeml.IndexOf("\r\n\r\n")+4, tmpeml.Length - tmpeml.IndexOf("\r\n\r\n")-4);
+                            tmpeml = tmpeml.Replace("\r\n", null).Replace("--", null);
+                            tmpeml = System.Text.Encoding.GetEncoding(tmpchrst).GetString(System.Convert.FromBase64String(tmpeml));
+                            Regex rgx = new Regex("charset=.*?>");
+                            tmpeml = rgx.Replace(tmpeml, "charset=\"UTF-8\">");
+                            tmpeml = tmpeml.Replace("\r\n", "<br>");
+                            bettereml += tmpeml;
+                        }
+                    } 
+                    
+                    //bettereml += convstr(parts[i], tmpchrst, outchrst);
+                    //bettereml += "</pre>";
+                }
+                else {
+                    
+                    if ( parts.Any(s => s.Contains("text/html"))) 
+                    {
+                    
+                        int i = Array.FindIndex(parts, tmp => tmp.Contains("text/html"));
+                        string tmpeml = parts[i];
+
+                        string trnenc = gettxttransferenc(tmpeml);
+
+                        bettereml += "<html><head><meta charset=\"UTF-8\" /></head><body>";
+
+                        if (trnenc.IndexOf("quoted-printable", StringComparison.OrdinalIgnoreCase) == -1 && trnenc.IndexOf("base64", StringComparison.OrdinalIgnoreCase) == -1)
+                        {
+
+                            //just plain text, maybe
+                            tmpeml = convstr(tmpeml, tmpchrst, outchrst);
+                            tmpeml = tmpeml.Replace("\r\n", "<br>");
+                            bettereml += tmpeml;
+                        }
+                        else
+                        {
+
+                            if (trnenc.IndexOf("quoted-printable", StringComparison.OrdinalIgnoreCase) != -1)
+                            {
+                                tmpeml = DecodeQuotedPrintable(tmpeml, tmpchrst);
+                                tmpeml = convstr(tmpeml, tmpchrst, outchrst);
+                                Regex rgx = new Regex("charset=.*?>");
+                                tmpeml = rgx.Replace(tmpeml, "charset=3D\"UTF-8\">");
+                                tmpeml = tmpeml.Replace("\r\n", "<br>");
+                                bettereml += tmpeml;
+                            }
+                            if (trnenc.IndexOf("base64", StringComparison.OrdinalIgnoreCase) != -1)
+                            {
+                                tmpeml = System.Text.Encoding.GetEncoding(tmpchrst).GetString(System.Convert.FromBase64String(tmpeml));
+                                Regex rgx = new Regex("charset=.*?>");
+                                tmpeml = rgx.Replace(tmpeml, "charset=\"UTF-8\">");
+                                tmpeml = convstr(tmpeml, tmpchrst, outchrst);
+                                //bettereml += EncodeQuotedPrintable(tmpeml, tmpchrst);
+                                tmpeml = tmpeml.Replace("\r\n", "<br>");
+                                //tmpeml = Regex.Replace(tmpeml, ".{76}(?!$)", "$0<br>");
+                                bettereml += tmpeml;
+                            }
+                        }         
+                    }
+                }
+
+                bettereml.Replace("</html>",null).Replace("</body>",null);
+
+                string tmpcnt2 = "<br><br>Вложения:<br><br>";
+                foreach (string pth in patches)
+                {
                     tmpcnt2 += "<b>" + pth.Substring(pth.LastIndexOf("\\") + 1) + "</b><br>";
                     tmpcnt2 += " В офисе: ";
                     tmpcnt2 += "<a href=\"file:///" + pth + "\">открыть файл</a> ";
                     tmpcnt2 += "<a href=\"file:///" + pth.Substring(0, pth.LastIndexOf("\\")) + "\">открыть папку</a><br>";
-                    tmpcnt2 += "Вне офиса: <a href=\"ftp://" + pth + "\">скачать</a><br><br>"; 
-
-                    
+                    tmpcnt2 += "Вне офиса: <a href=\"ftp://" + pth + "\">скачать</a><br><br>";
                 }
-                //tmpcnt2 = convstr(tmpcnt2);
-                tmpcnt += EncodeQuotedPrintable(tmpcnt2);
+
+                string tmpstr = bettereml.Substring(bettereml.IndexOf("<html>"));
+
+                if (tmpstr.Contains("From:"))
+                {
+                    int i = tmpstr.IndexOf("From:") + bettereml.Substring(0, bettereml.IndexOf("<html>")).Length;
+                    bettereml = bettereml.Insert(i, tmpcnt2);
+                }
+                else
+                {
+                    bettereml += tmpcnt2;
+                }
+                bettereml +="<br></body></html>";
+
+                /*
+                int z = bettereml.IndexOf("html");
+                uint cnt = 0;
+                while (z < bettereml.Length) {
+
+                    if (cnt == 77) {
+
+                        bettereml = bettereml.Insert(z, "=\r\n");
+                        cnt = 0;
+                    }
+                    z++;
+                    cnt++;
+                }
+                */
+ 
+
+
                 File.Delete(FileName);
                 string path2 = Path.Combine(tmpoutdir, FileName);
-                File.WriteAllText(path2, tmpcnt);  
+                File.WriteAllText(path2, bettereml);
             }
 
 
