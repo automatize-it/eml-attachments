@@ -1,4 +1,71 @@
 /*
+if ( charSet.IndexOf("utf-8", StringComparison.OrdinalIgnoreCase) != -1 )
+{
+    occurences = new Regex(@"(=[0-9A-Z]{2}){1,}", RegexOptions.Multiline); //{1,}
+}
+else
+{
+    occurences = new Regex(@"(=[0-9A-Z]{2})", RegexOptions.Multiline);
+}
+*/
+
+/*
+int z = bettereml.IndexOf("html");
+uint cnt = 0;
+while (z < bettereml.Length) {
+
+    if (cnt == 77) {
+
+        bettereml = bettereml.Insert(z, "=\r\n");
+        cnt = 0;
+    }
+    z++;
+    cnt++;
+}
+*/
+
+//bettereml += EncodeQuotedPrintable(tmpeml, outchrst);
+//tmpeml = Regex.Replace(tmpeml, ".{76}(?!$)", "$0<br>");
+
+
+
+// Check if file exists
+            //string fileName = args[0];
+            /*
+            string outpath = null;
+            if (args.Length > 1)
+            {
+                outpath = args[1];
+            }
+             */
+
+ //tmpcnt2 = convstr(tmpcnt2, "65001");
+                //bettereml += EncodeQuotedPrintable(tmpcnt2,tmpchrst);
+
+/*
+                    + "\r\nContent-Type: text/html; name=\"attachments.html\"\r\ncharset=\"" + tmpchrst + "\"\r\nContent-Disposition: inline; filename=\"attachments.html\"\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n";
+
+                string tmpcnt2 = "<html><head><title>attachments</title><meta charset=\"" + tmpchrst + "\" /></head><body>Вложения:<br><br>";
+                foreach (string pth in patches){
+                    tmpcnt2 += "<b>" + pth.Substring(pth.LastIndexOf("\\") + 1) + "</b><br>";
+                    tmpcnt2 += " В офисе: ";
+                    tmpcnt2 += "<a href=\"file:///" + pth + "\">открыть файл</a> ";
+                    tmpcnt2 += "<a href=\"file:///" + pth.Substring(0, pth.LastIndexOf("\\")) + "\">открыть папку</a><br>";
+                    tmpcnt2 += "Вне офиса: <a href=\"ftp://" + pth + "\">скачать</a><br><br>"; 
+
+                }
+                tmpcnt2 = convstr(tmpcnt2, tmpchrst);
+                //tmpcnt += Convert.ToBase64String(Encoding.GetEncoding(tmpchrst).GetBytes(tmpcnt2), Base64FormattingOptions.InsertLineBreaks);
+                tmpcnt += EncodeQuotedPrintable(tmpcnt2,tmpchrst);
+                File.Delete(FileName);
+                string path2 = Path.Combine(tmpoutdir, FileName);
+                File.WriteAllText(path2, tmpcnt);
+                */
+
+
+
+
+/*
                     tmpbts = Encoding.GetEncoding(65001).GetBytes(pth);
                     tmpbts = Encoding.Convert(Encoding.GetEncoding(65001), Encoding.GetEncoding(866), tmpbts);
                     tmpcnt += Convert.ToBase64String(tmpbts);

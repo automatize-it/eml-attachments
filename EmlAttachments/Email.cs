@@ -29,6 +29,9 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System.Net.Mail;
 using System.Linq;
+using System.Web;
+using System.Security.Cryptography;
+
 
 
 namespace Infiks.Email
@@ -156,7 +159,7 @@ namespace Infiks.Email
             Regex findchrstrgx = new Regex("Content-transfer-encoding: \"{0,1}(.*?)[\"\\;\\s\n]", RegexOptions.IgnoreCase);
 
             Match trnfenctmth = findchrstrgx.Match(tmppart);
-            string trnfenc = null;
+            string trnfenc = "";
             if (trnfenctmth.Success)
                 trnfenc = trnfenctmth.Groups[1].Value;
 
@@ -220,7 +223,12 @@ namespace Infiks.Email
             input = input.Replace("=\r\n=", "=");
             input = input.Replace("=\r\n ", "\r\n ");
             input = input.Replace("= \r\n", " \r\n");
-            var occurences = new Regex(@"(=[0-9A-Z]{2})", RegexOptions.Multiline); //{1,}
+            input = input.Replace("=\r\n", "");
+            var occurences = new Regex("");// = new Regex;
+            var tmpenc = new UTF8Encoding();
+
+            occurences = new Regex(@"(=[0-9A-Z]{2}){1,}", RegexOptions.Multiline);
+
             var matches = occurences.Matches(input);
 
             foreach (Match match in matches)
@@ -233,15 +241,16 @@ namespace Infiks.Email
                         b[i] = byte.Parse(match.Groups[0].Value.Substring(i * 3 + 1, 2), System.Globalization.NumberStyles.AllowHexSpecifier);
                     }
                     char[] hexChar = enc.GetChars(b);
-                    input = input.Replace(match.Groups[0].Value, new String(hexChar));
+                    int z = input.IndexOf(match.Groups[0].Value);
+                    input = input.Remove(z, match.Groups[0].Value.Length);
+                    input = input.Insert(z, new String(hexChar));
                     
-                    
-                    GC.Collect();
+                    //GC.Collect();
                 }
                 catch
                 { Console.WriteLine("QP dec err"); }
             }
-            input = input.Replace("?=", ""); //.Replace("\r\n", "");
+            input = input.Replace("?=", ""); 
 
             return input;
         }
@@ -254,8 +263,6 @@ namespace Infiks.Email
             Encoding destenc = Encoding.GetEncoding(outchrst);
 
             Encoding currenc = Encoding.GetEncoding(inchrst);
-
-            //currenc = Encoding.GetEncoding(65001);
 
             // Convert the string into a byte array.
             byte[] Bytes = currenc.GetBytes(origstr);
@@ -271,7 +278,7 @@ namespace Infiks.Email
 
         private string[] getdateMyyyy() {
 
-            Regex finddatergx = new Regex("Date:(.*)");
+            Regex finddatergx = new Regex("\nDate:(.*)");
             Match datemth = finddatergx.Match(Content);
 
             string msgmonthyear = "";
@@ -286,6 +293,26 @@ namespace Infiks.Email
             string[] strarr = msgmonthyear.Split(' ');
 
             return strarr;
+        }
+
+        static bool FilesAreEqual_Hash(FileInfo first, FileInfo second)
+        {
+            byte[] firstHash = MD5.Create().ComputeHash(first.OpenRead());
+            byte[] secondHash = MD5.Create().ComputeHash(second.OpenRead());
+
+            for (int i = 0; i < firstHash.Length; i++)
+            {
+                if (firstHash[i] != secondHash[i])
+                    return false;
+            }
+            return true;
+        }
+
+        public static string GetRandomAlphaNumeric()
+        {
+            var chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+            var random = new Random();
+            return new string(chars.Select(c => chars[random.Next(chars.Length)]).Take(8).ToArray());
         }
 
         /// <summary>
@@ -371,8 +398,6 @@ namespace Infiks.Email
                 // Valid header and content
                 string header = headerAndContent[0];
                 string content = headerAndContent[1];
-                //content.Replace("-", null);
-                //GC.Collect();
 
                 // Look for a valid file name string
                 // With UTF-8 Q it can be more than one string
@@ -428,11 +453,9 @@ namespace Infiks.Email
                 Match rgxchrmtch = rgxchrst.Match(fileNameStr);
                 
                 if (rgxchrmtch.Success)
-                {
                     emlcharset = rgxchrmtch.Groups[1].Value;
-                }
+                
 
-                //if (fileNameStr.IndexOf("=?" + emlcharset + "?", StringComparison.OrdinalIgnoreCase) != -1 )
                 if (emlcharset != null)
                 
                 {
@@ -442,17 +465,17 @@ namespace Infiks.Email
                     string multistr = null;
                     foreach (string tmpstr3 in fileNameStrArr)
                     {
+                        bool whspbtw = false;
+                        
+                        if ( fileNameStr.IndexOf(" ", fileNameStr.IndexOf(tmpstr3)) == (fileNameStr.IndexOf(tmpstr3) + tmpstr3.Length) )
+                            whspbtw = true;
 
                         if (tmpstr3.IndexOf("?Q?", 0, StringComparison.OrdinalIgnoreCase) != -1)
                         {
 
                             if (tmpstr3.IndexOf("\r\n") != -1 || multistr != "")
                             {
-                                //string[] reparr = { emlcharset, "?Q?", "?=", "=?", "\";", " " };
-                                multistr += Regex.Match(tmpstr3.Substring(tmpstr3.IndexOf("Q?", StringComparison.OrdinalIgnoreCase)), "(?<=\\?)(.*?)(?=\\?)");
-
-                                //multistr += tmpstr3.ReplArrIgnoreCase(reparr, null);
-                                    
+                                multistr += Regex.Match(tmpstr3.Substring(tmpstr3.IndexOf("Q?", StringComparison.OrdinalIgnoreCase)), "(?<=\\?)(.*?)(?=\\?)");       
                             }
                             else
                             {
@@ -503,6 +526,8 @@ namespace Infiks.Email
                             //everything's was ok till now so it's possibly tail of shitty mime B64 formatting
                             fileName += tmpstr3.Replace("=", null);
                         }
+
+                        if (whspbtw) fileName += "_";
 
                     }
                     if (multistr != null)
@@ -574,7 +599,7 @@ namespace Infiks.Email
         /// </summary>
         /// <param name="outputDirectory">The output directory.</param>
         /// <returns>The number of files saved.</returns>
-        public int SaveAttachments(string outputDirectory, string bckppth, bool sort)
+        public int SaveAttachments(string outputDirectory, string bckppth, bool sort, string ftppth)
         {
             // Keep track of total number attachments
             int count = 0;
@@ -601,19 +626,33 @@ namespace Infiks.Email
             foreach (var attachment in Attachments)
             {
                 // Write bytes to output file
-                uint dfn = 1;
+                //uint dfn = 1;
 
                 path = Path.Combine(outputDirectory, attachment.FileName);
 
+                //if two emails have identical flnms, we'll just overwrite it, that's not cool
                 if (File.Exists(path))
                 {
+                    FileInfo f = new FileInfo(path);
+                    if (f.Length == attachment.Content.Length) { 
+                        
+                        Console.WriteLine("Older attachment file found. No replacement done.");
+                        if (attstart > 0) patches.Add(path.ToString());
+                    }
+                    else
+                    {
+                        //maybe while (file exist) ?
+                        string tmpflnm = attachment.FileName.Insert(attachment.FileName.LastIndexOf("."), "_dfn_" + GetRandomAlphaNumeric());
+                        path = null;
 
-                    string tmpflnm = attachment.FileName.Insert(attachment.FileName.LastIndexOf("."), "_dfn" + (dfn++));
-                    path = null;
-                    //if (sort) outputDirectory += "\\" + tmpdate[0] + "\\" + tmpdate[1];
-                    path = Path.Combine(outputDirectory, tmpflnm);
-                    if (attstart > 0) patches.Add(path.ToString());
-                    File.WriteAllBytes(path, attachment.Content);
+                        path = Path.Combine(outputDirectory, tmpflnm);
+                        if (File.Exists(path)) {
+                            Console.WriteLine("Atts duplicate file names, assistance needed.");
+                            Environment.Exit(8);
+                        }
+                        if (attstart > 0) patches.Add(path.ToString());
+                        File.WriteAllBytes(path, attachment.Content);
+                    }
 
                 }
                 else
@@ -629,10 +668,12 @@ namespace Infiks.Email
             //and yes, I know, this code looks like shit. Still, it works.
             if (attstart > 0 && bckppth != "") //
             {
-                File.Copy(FileName, Path.Combine(bckppth,FileName));
+                
+                File.Copy(FileName, Path.Combine(bckppth,Path.GetFileName(FileName)));
 
                 string tmpchrst = gettxtcharset();
                 string outchrst = "utf-8";
+                bool alconv = false;
                 
                 /*
                  * Well, this is great.
@@ -640,7 +681,16 @@ namespace Infiks.Email
                  * Why not, really, this standart is completely ruined already,
                  * let's put anything anywhere.
                  */
+
                 string[] parts = Content.Substring(0, attstart).Split(boundaries, StringSplitOptions.RemoveEmptyEntries);
+
+                if ( parts.Any(s => s.Contains("binary")) || parts.Any(s => s.Contains("8bit")) )
+                {
+                    string tmp = File.ReadAllText(FileName, Encoding.GetEncoding(tmpchrst));
+                    alconv = true;
+                    tmp = tmp.Substring(0, attstart);
+                    parts = tmp.Split(boundaries, StringSplitOptions.RemoveEmptyEntries);
+                }
 
                 string bettereml = parts[0];
 
@@ -659,47 +709,48 @@ namespace Infiks.Email
                 Regex rgx100 = new Regex("[\r\n]{1,}\t{0,1}[\r\n]{1,}");
                 bettereml = rgx100.Replace(bettereml, "\r\n");
 
-                //string bettereml = Content.Substring(0, Content.IndexOf("Content-Type:"));
-                
                 bettereml = bettereml.Trim(new[] { '\r', '\n', '-', ' ', '\t' });
                 bettereml += "\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: binary\r\n\r\n";
-                //string tmpcnt = Content.Substring(0, attstart); 
 
-                
-                //string tmpcnt = Content.Substring(Content.IndexOf("boundary", attstart); 
-
-                //if ( parts.Contains("text/plain") )
                 if ( parts.Any(s => s.Contains("text/plain")) )
                 {
                     
                     int i = Array.FindIndex(parts, tmp => tmp.Contains("text/plain"));
                     string tmpeml = parts[i];
-
                     string trnenc = gettxttransferenc(tmpeml);
-                    
-                    bettereml += "<html><head><meta charset=\"UTF-8\" /></head><body>";
 
+                    bettereml += "<html><head><meta charset=\"UTF-8\" /></head><body>\r\n";
+
+                    //just plain text, maybe
                     if (trnenc.IndexOf("quoted-printable", StringComparison.OrdinalIgnoreCase) == -1 && trnenc.IndexOf("base64", StringComparison.OrdinalIgnoreCase) == -1)
                     {
-                        //just plain text, maybe
-                        tmpeml = convstr(tmpeml, tmpchrst, outchrst);
-                        //bettereml += EncodeQuotedPrintable(tmpeml, outchrst);
-                        //tmpeml = Regex.Replace(tmpeml, ".{76}(?!$)", "$0<br>");
-                        bettereml += tmpeml;
+                        //exclude tech
+                        Regex rgx = new Regex("Content-Type:.*|charset=.*|Content-Transfer-Encoding:.*");
+                        tmpeml = rgx.Replace(tmpeml, "");
+                        if (tmpeml == "")
+                        {
+                            bettereml += "\r\n--\r\n";
+                        }
+                        else
+                        {
+                            if (!alconv)
+                            {
+                                tmpeml = convstr(tmpeml, tmpchrst, outchrst);
+                            }
+                            tmpeml = tmpeml.Replace("\r\n", "<br>");
+                            bettereml += tmpeml;
+                        }
                     }
                     else
                     {
                         if (trnenc.IndexOf("quoted-printable", StringComparison.OrdinalIgnoreCase) != -1)
                         {
-                            tmpeml = tmpeml.Substring(tmpeml.IndexOf("\r\n\r\n")+4, tmpeml.Length - tmpeml.IndexOf("\r\n\r\n")-4);
-                            
+                            tmpeml = tmpeml.Substring(tmpeml.IndexOf("\r\n\r\n") + 4, tmpeml.Length - tmpeml.IndexOf("\r\n\r\n") - 4);
                             tmpeml = DecodeQuotedPrintable(tmpeml, tmpchrst);
-                            
                             Regex rgx = new Regex("charset=.*?>");
-                            tmpeml = rgx.Replace(tmpeml, "charset=3D\"UTF-8\">");
+                            tmpeml = rgx.Replace(tmpeml, "charset=\"UTF-8\">");
                             Regex rgx2 = new Regex("(\r\n){3,}");
                             tmpeml = rgx2.Replace(tmpeml, "\r\n\r\n");
-                            
                             tmpeml = tmpeml.Replace("\r\n", "<br>");
                             bettereml += tmpeml;
                         }
@@ -710,13 +761,10 @@ namespace Infiks.Email
                             tmpeml = System.Text.Encoding.GetEncoding(tmpchrst).GetString(System.Convert.FromBase64String(tmpeml));
                             Regex rgx = new Regex("charset=.*?>");
                             tmpeml = rgx.Replace(tmpeml, "charset=\"UTF-8\">");
-                            tmpeml = tmpeml.Replace("\r\n", "<br>");
+                            tmpeml = tmpeml.Replace("\r\n", "<br>").Replace("\n", "<br>");
                             bettereml += tmpeml;
                         }
                     } 
-                    
-                    //bettereml += convstr(parts[i], tmpchrst, outchrst);
-                    //bettereml += "</pre>";
                 }
                 else {
                     
@@ -728,37 +776,48 @@ namespace Infiks.Email
 
                         string trnenc = gettxttransferenc(tmpeml);
 
-                        bettereml += "<html><head><meta charset=\"UTF-8\" /></head><body>";
+                        bettereml += "<html><head><meta charset=\"UTF-8\" /></head><body>\r\n";
 
                         if (trnenc.IndexOf("quoted-printable", StringComparison.OrdinalIgnoreCase) == -1 && trnenc.IndexOf("base64", StringComparison.OrdinalIgnoreCase) == -1)
                         {
 
                             //just plain text, maybe
-                            tmpeml = convstr(tmpeml, tmpchrst, outchrst);
-                            tmpeml = tmpeml.Replace("\r\n", "<br>");
-                            bettereml += tmpeml;
+                            Regex rgx = new Regex("Content-Type:.*|charset=.*|Content-Transfer-Encoding:.*");
+                            tmpeml = rgx.Replace(tmpeml, "");
+                            if (tmpeml == "")
+                            {
+                                bettereml += "\r\n--\r\n";
+                            }
+                            else
+                            {
+                                tmpeml = convstr(tmpeml, tmpchrst, outchrst);
+                                tmpeml = tmpeml.Replace("\r\n", "<br>");
+                                bettereml += tmpeml;
+                            }
                         }
                         else
                         {
 
                             if (trnenc.IndexOf("quoted-printable", StringComparison.OrdinalIgnoreCase) != -1)
                             {
+                                tmpeml = tmpeml.Substring(tmpeml.IndexOf("\r\n\r\n") + 4, tmpeml.Length - tmpeml.IndexOf("\r\n\r\n") - 4);
+                                tmpeml = tmpeml.Replace("\r\n", null).Replace("--", null);
                                 tmpeml = DecodeQuotedPrintable(tmpeml, tmpchrst);
                                 tmpeml = convstr(tmpeml, tmpchrst, outchrst);
                                 Regex rgx = new Regex("charset=.*?>");
-                                tmpeml = rgx.Replace(tmpeml, "charset=3D\"UTF-8\">");
+                                tmpeml = rgx.Replace(tmpeml, "charset=\"UTF-8\">");
                                 tmpeml = tmpeml.Replace("\r\n", "<br>");
                                 bettereml += tmpeml;
                             }
                             if (trnenc.IndexOf("base64", StringComparison.OrdinalIgnoreCase) != -1)
                             {
+                                tmpeml = tmpeml.Substring(tmpeml.IndexOf("\r\n\r\n") + 4, tmpeml.Length - tmpeml.IndexOf("\r\n\r\n") - 4);
+                                tmpeml = tmpeml.Replace("\r\n", null).Replace("--", null);
                                 tmpeml = System.Text.Encoding.GetEncoding(tmpchrst).GetString(System.Convert.FromBase64String(tmpeml));
                                 Regex rgx = new Regex("charset=.*?>");
                                 tmpeml = rgx.Replace(tmpeml, "charset=\"UTF-8\">");
-                                tmpeml = convstr(tmpeml, tmpchrst, outchrst);
-                                //bettereml += EncodeQuotedPrintable(tmpeml, tmpchrst);
+                                //tmpeml = convstr(tmpeml, tmpchrst, outchrst);
                                 tmpeml = tmpeml.Replace("\r\n", "<br>");
-                                //tmpeml = Regex.Replace(tmpeml, ".{76}(?!$)", "$0<br>");
                                 bettereml += tmpeml;
                             }
                         }         
@@ -767,14 +826,20 @@ namespace Infiks.Email
 
                 bettereml.Replace("</html>",null).Replace("</body>",null);
 
-                string tmpcnt2 = "<br><br>Вложения:<br><br>";
+                string tmpcnt2 = "<br><h3>Вложения:</h3>";
                 foreach (string pth in patches)
                 {
                     tmpcnt2 += "<b>" + pth.Substring(pth.LastIndexOf("\\") + 1) + "</b><br>";
                     tmpcnt2 += " В офисе: ";
                     tmpcnt2 += "<a href=\"file:///" + pth + "\">открыть файл</a> ";
                     tmpcnt2 += "<a href=\"file:///" + pth.Substring(0, pth.LastIndexOf("\\")) + "\">открыть папку</a><br>";
-                    tmpcnt2 += "Вне офиса: <a href=\"ftp://" + pth + "\">скачать</a><br><br>";
+                    if (ftppth != ""){
+                        ftppth = ftppth.Trim('\"');
+                        tmpcnt2 += "Вне офиса: <a href=\"ftp://" + ftppth + "/";
+                        if (sort)
+                            tmpcnt2 += tmpdate[0] + "/" + tmpdate[1] + "/";
+                        tmpcnt2 += HttpUtility.UrlEncode(pth.Substring(pth.LastIndexOf("\\")+1)) + "\">скачать</a><br><br>";
+                    }
                 }
 
                 string tmpstr = bettereml.Substring(bettereml.IndexOf("<html>"));
@@ -782,36 +847,31 @@ namespace Infiks.Email
                 if (tmpstr.Contains("From:"))
                 {
                     int i = tmpstr.IndexOf("From:") + bettereml.Substring(0, bettereml.IndexOf("<html>")).Length;
+                    bettereml = bettereml.Insert(i, "<hr/>"); 
+                    i -= 5;
                     bettereml = bettereml.Insert(i, tmpcnt2);
+                    
                 }
                 else
                 {
                     bettereml += tmpcnt2;
                 }
                 bettereml +="<br></body></html>";
+                bettereml = bettereml.Replace("<br>", "<br>\r\n");
 
-                /*
-                int z = bettereml.IndexOf("html");
-                uint cnt = 0;
-                while (z < bettereml.Length) {
-
-                    if (cnt == 77) {
-
-                        bettereml = bettereml.Insert(z, "=\r\n");
-                        cnt = 0;
-                    }
-                    z++;
-                    cnt++;
+                Match m = Regex.Match(bettereml, "(^(\\s{0,})<br>(\r\n|\n)){2,}", RegexOptions.Multiline);
+                while (m.Success)
+                {
+                    bettereml = bettereml.Replace("\r\n"+(m.Groups[0].Value), "\r\n<br>\r\n");
+                    m = m.NextMatch();
                 }
-                */
- 
 
-
-                File.Delete(FileName);
-                string path2 = Path.Combine(tmpoutdir, FileName);
-                File.WriteAllText(path2, bettereml);
+                FileInfo f = new FileInfo(FileName);
+                string tmppth = f.DirectoryName;
+                tmppth = Path.Combine(tmppth, FileName);
+                File.Delete(tmppth);
+                File.WriteAllText(tmppth, bettereml);
             }
-
 
             // Return count
             return count;

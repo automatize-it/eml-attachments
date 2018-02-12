@@ -48,8 +48,9 @@ namespace Infiks.Email
              * --deletefromorigin – cut attachments from eml file
              * YES – parameter for --deletefromorigin
              * -b – dir to place original file if -deletefromorigin
+             * --ftp – ftp path, format server/dir
              */
-            string[] argsset = { "-i", "-o", "--deletefromorigin", "YES", "-b", "--sortbyMyyyy" };
+            string[] argsset = { "-i", "-o", "--deletefromorigin", "YES", "-b", "--sortbyMyyyy", "--ftp" };
 
             // Check arguments
             if (args.Length == 0 || args[0] == "/?" || (!args.Contains(argsset[0])))
@@ -62,6 +63,7 @@ namespace Infiks.Email
             
             string outpath = "";
             string bckppath = "";
+            string ftppath = "";
             bool sort = false;
 
             //int i = (Array.FindIndex(args, row => row.Contains(argsset[1])));
@@ -78,19 +80,24 @@ namespace Infiks.Email
                     return;
                 }
                 bckppath = args[(Array.FindIndex(args, tmp => tmp.Contains(argsset[4]))) + 1];
+
+                if ( bckppath == outpath || (outpath == "" && bckppath == Path.GetDirectoryName(fileName)) ) {
+                    Console.WriteLine("Backup dir and extract dir must be different.");
+                    //Console.ReadKey();
+                    Environment.Exit(4);
+                }
+                    
             }
 
-            if (args.Contains(argsset[5])) sort = true; 
+            if (args.Contains(argsset[5])) 
+                sort = true;
+
+            if (args.Contains(argsset[6])) 
+                ftppath = args[(Array.FindIndex(args, tmp => tmp.Contains(argsset[6]))) + 1]; 
+
             
-            // Check if file exists
-            //string fileName = args[0];
-            /*
-            string outpath = null;
-            if (args.Length > 1)
-            {
-                outpath = args[1];
-            }
-             */
+
+
             if (!File.Exists(fileName))
             {
                 Console.WriteLine("Cannot find file: {0}.", fileName);
@@ -103,11 +110,11 @@ namespace Infiks.Email
             int count;
             if ( outpath != "" )
             {
-                count = email.SaveAttachments(Path.GetFullPath(outpath),bckppath,sort);
+                count = email.SaveAttachments(Path.GetFullPath(outpath),bckppath,sort,ftppath);
             }
             else
             {
-                count = email.SaveAttachments(Path.GetDirectoryName(fileName),bckppath,sort);
+                count = email.SaveAttachments(Path.GetDirectoryName(fileName),bckppath,sort,ftppath);
             }
             Console.WriteLine("{0} attachments extracted.", count);
         }
