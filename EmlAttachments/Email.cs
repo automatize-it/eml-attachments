@@ -40,6 +40,23 @@ namespace Infiks.Email
     /// <summary>
     /// A class for representing an email (eml file).
     /// </summary>
+    
+    public static class StringExtensions
+        {
+           public static bool Contains(this String str, String substring, 
+                                       StringComparison comp)
+           {                            
+              if (substring == null)
+                 throw new ArgumentNullException("substring", 
+                                                 "substring cannot be null.");
+              else if (! Enum.IsDefined(typeof(StringComparison), comp))
+                 throw new ArgumentException("comp is not a member of StringComparison",
+                                             "comp");
+              //, StringComparison.OrdinalIgnoreCase
+              return str.IndexOf(substring, comp) >= 0;                      
+           }
+        }
+    
     class Email
     {
         /// <summary>
@@ -49,10 +66,13 @@ namespace Infiks.Email
         int attstart = 0;
         public string FileName { private set; get; }
         public string[] boundaries = new string[1];
+        bool xtrwhsls_inner = false;
 
         /// <summary>
         /// The boundary string of the email.
         /// </summary>
+        /// 
+
         public string Boundary
         {
             get { return _boundary ?? (_boundary = GetBoundary()); }
@@ -153,7 +173,7 @@ namespace Infiks.Email
             return emlcharset;
         }
 
-        private string gettxttransferenc(string tmppart)
+        public static string gettxttransferenc(string tmppart)
         {
 
             Regex findchrstrgx = new Regex("Content-transfer-encoding: \"{0,1}(.*?)[\"\\;\\s\n]", RegexOptions.IgnoreCase);
@@ -308,12 +328,106 @@ namespace Infiks.Email
             return true;
         }
 
+
         public static string GetRandomAlphaNumeric()
         {
             var chars = "abcdefghijklmnopqrstuvwxyz0123456789";
             var random = new Random();
             return new string(chars.Select(c => chars[random.Next(chars.Length)]).Take(8).ToArray());
         }
+
+
+        private static List<string> get_tables(string htmlcnt, string tmpchrst)
+        {
+
+            List<string> tables = new List<string>();
+            string htmltable = "";
+            string trnenc = gettxttransferenc(htmlcnt);
+            
+            //need to find all tables, can be more than one
+
+            //if not base64 coded
+            if ( !trnenc.Contains("base64") ) {
+                
+                if ( !htmlcnt.Contains("<table") ) 
+                    return null;
+                else {
+
+                    if (trnenc.Contains("quoted-printable"))
+                        htmlcnt = DecodeQuotedPrintable(htmlcnt, tmpchrst);
+
+                }
+            }
+            //if base64 coded
+            else {
+
+                htmlcnt = System.Text.Encoding.GetEncoding(tmpchrst).GetString(System.Convert.FromBase64String(htmlcnt));
+
+                if (!htmlcnt.Contains("<table"))
+                    return null;
+            }
+            
+            int nth = 0;
+            while ( !(nth < 0) )
+            {
+                int i = htmlcnt.IndexOf("<table", nth+1);
+                if (i < 0) break;
+                htmltable = htmlcnt.Substring(i, htmlcnt.IndexOf("</table>",i+1) - i + 8);
+                tables.Add(htmltable);
+                nth = i;
+            }
+
+            return tables;
+
+        }
+
+
+        private static string place_tables(string btreml, List<string> htmltbl)
+        {
+
+            foreach (string tmp in htmltbl) {
+                
+                Match match = new Regex("<td.*?>(.|\\s*?)<\\/td>",RegexOptions.Multiline).Match(tmp);
+
+                string strtvl = match.Groups[0].Value;
+                strtvl = strtvl.Replace("\r", "").Replace("\n", "").Replace("  ","");
+                strtvl = new Regex("<.*?>").Replace(strtvl, "");
+                //strtvl = strtvl.Replace("\r","").Replace
+            
+                if ( String.IsNullOrWhiteSpace(strtvl) ) 
+                {
+                    while (match.Success)
+                    {
+                        strtvl = match.Groups[0].Value;
+                        strtvl = strtvl.Replace("\r", "").Replace("\n", "").Replace("  ", "");
+                        strtvl = new Regex("<.*?>").Replace(strtvl, "");
+                        if ( !String.IsNullOrWhiteSpace(strtvl) ) break;
+                        match = match.NextMatch();
+                    }
+                }
+            
+                string endvl = "";
+
+                while (match.Success) {
+
+                    endvl = match.Groups[0].Value;
+                    endvl = endvl.Replace("\r", "").Replace("\n", "").Replace("  ", "");
+                    endvl = new Regex("<.*?>").Replace(strtvl, "");
+                    if (!String.IsNullOrWhiteSpace(endvl)) break;
+                    match = match.NextMatch();
+                }
+
+                endvl = new Regex("<.*?>").Replace(endvl, "");
+
+                int i = btreml.IndexOf(strtvl);
+                btreml = btreml.Remove( i, btreml.IndexOf(endvl) + endvl.Length - i );
+
+                btreml = btreml.Insert(i, tmp.Replace(">", ">\r\n"));
+            }
+
+            return btreml;
+        }
+
 
         /// <summary>
         /// Tries to find the attachments encoded as Base64 in the .eml file.
@@ -334,14 +448,8 @@ namespace Infiks.Email
              * Just fucking great. It can be charset=*; or charset="" (wo ;) or hell knows how else
              * how the hell it's STANDART? die mime die
              */
-
-            //Regex findchrstrgx = new Regex("charset=\"{0,1}(.*?)[\"\\;\\s\n]");
-            //Match emlcharsetmth = findchrstrgx.Match(Content);
+        
             string emlcharset = null;
-            //if (emlcharsetmth.Success)
-            //{
-            //   emlcharset = emlcharsetmth.Groups[1].Value;
-            //}
 
             // Split email content on boundary
             //string[] parts = Content.Split(new[] { Boundary }, StringSplitOptions.RemoveEmptyEntries);
@@ -426,8 +534,11 @@ namespace Infiks.Email
                 }
 
                 //these are just whistles&bells, ignore them
-                if (header.Contains("Content-Disposition: inline")) 
-                    continue;
+                if (header.Contains("Content-Disposition: inline"))
+                {
+                    if (!xtrwhsls_inner) 
+                        continue;
+                }
 
                 if (attstart == 0) 
                     attstart = Content.IndexOf(part);
@@ -599,10 +710,11 @@ namespace Infiks.Email
         /// </summary>
         /// <param name="outputDirectory">The output directory.</param>
         /// <returns>The number of files saved.</returns>
-        public int SaveAttachments(string outputDirectory, string bckppth, bool sort, string ftppth)
+        public int SaveAttachments(string outputDirectory, string bckppth, bool sort, string ftppth, bool xtrwhsls)
         {
             // Keep track of total number attachments
             int count = 0;
+            xtrwhsls_inner = xtrwhsls;
 
             List<string> patches = new List<string> { };
             string[] tmpdate = new string[2];
@@ -698,6 +810,7 @@ namespace Infiks.Email
 
                     bettereml += parts[1];
                 }
+
                 string[] mimekeystoremove = { "Content-Type:.*", "boundary=.*", "X-(?!Envelope).*", "charset=.*", "Content-Transfer-Encoding:.*", "This is a multi-part message in MIME format.*" };
 
                 foreach ( string fltr in mimekeystoremove ) {
@@ -764,7 +877,18 @@ namespace Infiks.Email
                             tmpeml = tmpeml.Replace("\r\n", "<br>").Replace("\n", "<br>");
                             bettereml += tmpeml;
                         }
-                    } 
+                    }
+ 
+                    //add here search for tables
+                    //omg when its gonna end
+
+                    if (parts.Any(s => s.Contains("text/html")))
+                    {
+                        List <string> tmp = get_tables(parts[Array.FindIndex(parts, tmp2 => tmp2.Contains("text/html"))], tmpchrst);
+                        if (tmp != null)
+                            bettereml = place_tables(bettereml, tmp);
+                    }
+
                 }
                 else {
                     
@@ -844,9 +968,17 @@ namespace Infiks.Email
 
                 string tmpstr = bettereml.Substring(bettereml.IndexOf("<html>"));
 
-                if (tmpstr.Contains("From:"))
+                if (tmpstr.Contains("From:") || tmpstr.Contains("---"))
                 {
-                    int i = tmpstr.IndexOf("From:") + bettereml.Substring(0, bettereml.IndexOf("<html>")).Length;
+                    int i = 0;
+                    if (tmpstr.IndexOf("---") == -1)
+                    {
+                        i = tmpstr.IndexOf("From:"); 
+                    }
+                    else {
+                        i = tmpstr.IndexOf("---");
+                    }
+                    i += bettereml.Substring(0, bettereml.IndexOf("<html>")).Length; 
                     bettereml = bettereml.Insert(i, "<hr/>"); 
                     i -= 5;
                     bettereml = bettereml.Insert(i, tmpcnt2);

@@ -50,7 +50,7 @@ namespace Infiks.Email
              * -b – dir to place original file if -deletefromorigin
              * --ftp – ftp path, format server/dir
              */
-            string[] argsset = { "-i", "-o", "--deletefromorigin", "YES", "-b", "--sortbyMyyyy", "--ftp" };
+            string[] argsset = { "-i", "-o", "--deletefromorigin", "YES", "-b", "--sortbyMyyyy", "--ftp", "--xtrwhistls" };
 
             // Check arguments
             if (args.Length == 0 || args[0] == "/?" || (!args.Contains(argsset[0])))
@@ -65,6 +65,7 @@ namespace Infiks.Email
             string bckppath = "";
             string ftppath = "";
             bool sort = false;
+            bool xtrwhstls = false;
 
             //int i = (Array.FindIndex(args, row => row.Contains(argsset[1])));
 
@@ -93,8 +94,10 @@ namespace Infiks.Email
                 sort = true;
 
             if (args.Contains(argsset[6])) 
-                ftppath = args[(Array.FindIndex(args, tmp => tmp.Contains(argsset[6]))) + 1]; 
+                ftppath = args[(Array.FindIndex(args, tmp => tmp.Contains(argsset[6]))) + 1];
 
+            if (args.Contains(argsset[7]))
+                xtrwhstls = true; 
             
 
 
@@ -110,11 +113,11 @@ namespace Infiks.Email
             int count;
             if ( outpath != "" )
             {
-                count = email.SaveAttachments(Path.GetFullPath(outpath),bckppath,sort,ftppath);
+                count = email.SaveAttachments(Path.GetFullPath(outpath),bckppath,sort,ftppath,xtrwhstls);
             }
             else
             {
-                count = email.SaveAttachments(Path.GetDirectoryName(fileName),bckppath,sort,ftppath);
+                count = email.SaveAttachments(Path.GetDirectoryName(fileName), bckppath, sort, ftppath, xtrwhstls);
             }
             Console.WriteLine("{0} attachments extracted.", count);
         }

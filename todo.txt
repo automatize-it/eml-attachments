@@ -1,10 +1,10 @@
 
-? html parts can contain tables, and they can be useful
+? html parts can contain tables and markups, and they can be useful
 
 > add args check: correct paths and other
-> "ignorewhistles" option
 
 
+V "ignorewhistles" option
 V when it's whitespace btwn two differenlty encoded name part's it'll be ignored. Not sure how to fix or is it neccessary 
 V check if output dir and backup dir are the same
 V cleaning redundant brs: there can be blank space and hell knows what else before <br 
