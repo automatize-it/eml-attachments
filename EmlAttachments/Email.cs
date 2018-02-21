@@ -361,6 +361,8 @@ namespace Infiks.Email
             //if base64 coded
             else {
 
+                htmlcnt = htmlcnt.Substring(htmlcnt.IndexOf("\r\n\r\n") + 4, htmlcnt.Length - htmlcnt.IndexOf("\r\n\r\n") - 4);
+                htmlcnt = htmlcnt.Replace("\r\n", null).Replace("--", null);
                 htmlcnt = System.Text.Encoding.GetEncoding(tmpchrst).GetString(System.Convert.FromBase64String(htmlcnt));
 
                 if (!htmlcnt.Contains("<table"))
@@ -444,6 +446,13 @@ namespace Infiks.Email
             if(Boundary == null)
                 return attachments;
 
+            if (Content.Contains("filename*=")) {
+
+                Console.WriteLine("RFC 5987 format is not supported.");
+                Environment.Exit(-2);
+            }
+
+
             /*
              * Just fucking great. It can be charset=*; or charset="" (wo ;) or hell knows how else
              * how the hell it's STANDART? die mime die
@@ -511,6 +520,11 @@ namespace Infiks.Email
                 // With UTF-8 Q it can be more than one string
                 // UPDATE GREAT WE CAN HAVE \R\N AFTER =
                 // name="=?UTF-8?b?0KPRgdGC0LDQsg==?= 2012.pdf" Content-Disposition: attachment;
+
+                /*
+                 * also need to add filename*= according to rfc5987
+                 */
+
                 Regex regex = new Regex("(?<=filename=)(.|\n|\t){0,3}\"((.|\n|\t)*?)\"");
                 Match match = regex.Match(header);
                 if (!match.Success)
@@ -554,7 +568,7 @@ namespace Infiks.Email
                  * UPDATE: there can be more than one type (Q or B) in one string AND ALSO NON ENCODED NOT MARKED ASCII SYMBOLS. Fuck this, MIME really should die.
                  
                  ******/
-                
+
                 string fileNameStr = match.Groups[2].Value;
                 string fileName = null;
                 string[] fileNameStrArr = null;
@@ -656,7 +670,7 @@ namespace Infiks.Email
                     fileName = fileNameStr;
                 }
 
-                fileName = fileName.Replace(" ", "_");
+                fileName = fileName.Replace("  ", "_").Replace(" ", "_").Replace("__","_");
                 fileName = fileName.Replace("_. ", ".");
                 fileName = fileName.Trim('_');
                 if (fileName.IndexOf('=') != -1)
@@ -940,7 +954,6 @@ namespace Infiks.Email
                                 tmpeml = System.Text.Encoding.GetEncoding(tmpchrst).GetString(System.Convert.FromBase64String(tmpeml));
                                 Regex rgx = new Regex("charset=.*?>");
                                 tmpeml = rgx.Replace(tmpeml, "charset=\"UTF-8\">");
-                                //tmpeml = convstr(tmpeml, tmpchrst, outchrst);
                                 tmpeml = tmpeml.Replace("\r\n", "<br>");
                                 bettereml += tmpeml;
                             }
@@ -980,7 +993,7 @@ namespace Infiks.Email
                     }
                     i += bettereml.Substring(0, bettereml.IndexOf("<html>")).Length; 
                     bettereml = bettereml.Insert(i, "<hr/>"); 
-                    i -= 5;
+                    //i -= 5;
                     bettereml = bettereml.Insert(i, tmpcnt2);
                     
                 }
