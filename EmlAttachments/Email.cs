@@ -298,21 +298,34 @@ namespace Infiks.Email
 
         private string[] getdateMyyyy() {
 
-            Regex finddatergx = new Regex("\nDate:(.*)");
+            Regex finddatergx = new Regex("^Date:(.*)", RegexOptions.Multiline);
             Match datemth = finddatergx.Match(Content);
 
             string msgmonthyear = "";
 
             if (!datemth.Success)
             {
-                Console.WriteLine("Date error");
+                Console.WriteLine("Date error.");
+                Environment.Exit(-9);
             }
 
             //split by " ", elements index 2 and 3
             msgmonthyear = datemth.Groups[1].Value;
-            string[] strarr = msgmonthyear.Split(' ');
+            //string[] strarr = msgmonthyear.Split(' '); //new char[] {' '}, , StringSplitOptions.RemoveEmptyEntries
+            string[] strarr = msgmonthyear.Split(new char[] {' '}, StringSplitOptions.RemoveEmptyEntries);
 
-            return strarr;
+            if (!(new Regex("\\d{4}").Match(strarr[3]).Success) || !(new Regex("[a-zA-Z]{3}").Match(strarr[2]).Success))
+            {
+
+                Console.WriteLine("Date parsing error.");
+                Environment.Exit(-9);
+            }
+
+            string[] dateresult = new string[2];
+            dateresult[0] = strarr[3];
+            dateresult[1] = strarr[2];
+
+            return dateresult;
         }
 
         static bool FilesAreEqual_Hash(FileInfo first, FileInfo second)
@@ -355,7 +368,6 @@ namespace Infiks.Email
 
                     if (trnenc.Contains("quoted-printable"))
                         htmlcnt = DecodeQuotedPrintable(htmlcnt, tmpchrst);
-
                 }
             }
             //if base64 coded
@@ -375,6 +387,7 @@ namespace Infiks.Email
                 int i = htmlcnt.IndexOf("<table", nth+1);
                 if (i < 0) break;
                 htmltable = htmlcnt.Substring(i, htmlcnt.IndexOf("</table>",i+1) - i + 8);
+                htmltable = htmltable.Replace("\r","").Replace("\n","");
                 tables.Add(htmltable);
                 nth = i;
             }
@@ -387,13 +400,24 @@ namespace Infiks.Email
         private static string place_tables(string btreml, List<string> htmltbl)
         {
 
+            int strtindx = btreml.IndexOf("<body>")+6;
+
             foreach (string tmp in htmltbl) {
+
+                string regextr = "<tr(.|\\s)*?>((.|\\s)*?)<\\/tr>";
+                string regextd = "<td(.|\\s)*?>((.|\\s)*?)<\\/td>";
+                MatchCollection matchestr = Regex.Matches(tmp, regextr, RegexOptions.Multiline); 
+                MatchCollection matchestd = Regex.Matches(tmp, regextd, RegexOptions.Multiline);
                 
-                Match match = new Regex("<td.*?>(.|\\s*?)<\\/td>",RegexOptions.Multiline).Match(tmp);
+                //one-dimension table, do not need to process
+                if (matchestr.Count == matchestd.Count) 
+                    continue;
+
+                Match match = new Regex("<td.*?>((.|\\s)*?)<\\/td>",RegexOptions.Multiline).Match(tmp);
 
                 string strtvl = match.Groups[0].Value;
-                strtvl = strtvl.Replace("\r", "").Replace("\n", "").Replace("  ","");
-                strtvl = new Regex("<.*?>").Replace(strtvl, "");
+                strtvl = strtvl.Replace("\r", "").Replace("\n", "").Replace("  ", "").Replace("&nbsp;", " ").Replace("&quot;", "\"");
+                strtvl = new Regex("(<(?!a href|\\/a).*?>)").Replace(strtvl, "");
                 //strtvl = strtvl.Replace("\r","").Replace
             
                 if ( String.IsNullOrWhiteSpace(strtvl) ) 
@@ -401,30 +425,56 @@ namespace Infiks.Email
                     while (match.Success)
                     {
                         strtvl = match.Groups[0].Value;
-                        strtvl = strtvl.Replace("\r", "").Replace("\n", "").Replace("  ", "");
-                        strtvl = new Regex("<.*?>").Replace(strtvl, "");
+                        strtvl = strtvl.Replace("\r", "").Replace("\n", "").Replace("  ", "").Replace("&nbsp;", " ").Replace("&quot;", "\"");
+                        strtvl = new Regex("(<(?!a href|\\/a).*?>)").Replace(strtvl, "");
                         if ( !String.IsNullOrWhiteSpace(strtvl) ) break;
                         match = match.NextMatch();
                     }
                 }
             
                 string endvl = "";
+                match = match.NextMatch();
 
                 while (match.Success) {
 
-                    endvl = match.Groups[0].Value;
-                    endvl = endvl.Replace("\r", "").Replace("\n", "").Replace("  ", "");
-                    endvl = new Regex("<.*?>").Replace(strtvl, "");
-                    if (!String.IsNullOrWhiteSpace(endvl)) break;
+                    string tmpstr = match.Groups[0].Value;
+                    tmpstr = tmpstr.Replace("\r", "").Replace("\n", "").Replace("  ", "").Replace("&nbsp;", " ").Replace("&quot;", "\"");
+                    tmpstr = new Regex("(<(?!a href|\\/a).*?>)").Replace(tmpstr, "");
+                    if (!String.IsNullOrWhiteSpace(tmpstr)) 
+                        endvl = tmpstr;
                     match = match.NextMatch();
                 }
 
-                endvl = new Regex("<.*?>").Replace(endvl, "");
+                endvl = new Regex("(<(?!a href|\\/a).*?>)").Replace(endvl, "");
+                
+                //they can contain UTF symbols encoded in HTML. 
+                //It's not enough cause - != – for exaple so index of strtvl in btreml will not be found
+                strtvl = HttpUtility.HtmlDecode(strtvl);
+                strtvl = strtvl.TrimStart(' ');
+                endvl = HttpUtility.HtmlDecode(endvl);
+                endvl = endvl.TrimStart(' ');
 
-                int i = btreml.IndexOf(strtvl);
-                btreml = btreml.Remove( i, btreml.IndexOf(endvl) + endvl.Length - i );
+                int i = btreml.IndexOf(new Regex("<a href.*?>|</a>").Replace(strtvl, ""));
+                int i2 = btreml.IndexOf(new Regex("<a href.*?>|</a>").Replace(endvl, ""));
 
-                btreml = btreml.Insert(i, tmp.Replace(">", ">\r\n"));
+                while (i2 > strtindx && i > (i2 - 8))
+                {
+                    
+                    i2 = btreml.IndexOf(new Regex("<a href.*?>|</a>").Replace(endvl, ""), i2 + 1);
+                }
+
+                if (i < strtindx || i2 < strtindx || i > (i2 - 8))
+                {
+
+                    Console.WriteLine("Html table parsing error");
+                    btreml += "<br>\r\n";
+                    btreml = btreml.Insert(btreml.Length, tmp.Replace(">", ">\r\n"));
+                }
+                else
+                {
+                    btreml = btreml.Remove(i, i2 + new Regex("<a href.*?>|</a>").Replace(endvl, "").Length - i);
+                    btreml = btreml.Insert(i, tmp.Replace(">", ">\r\n"));
+                }
             }
 
             return btreml;
@@ -452,6 +502,12 @@ namespace Infiks.Email
                 Environment.Exit(-2);
             }
 
+            if (Content.Contains("Apple-Mail"))
+            {
+
+                Console.WriteLine("Apple Mail is not supported.");
+                Environment.Exit(-6);
+            }
 
             /*
              * Just fucking great. It can be charset=*; or charset="" (wo ;) or hell knows how else
@@ -537,14 +593,11 @@ namespace Infiks.Email
                         match = flnmaltrgx.Match(header);
                         if (!match.Success)
                         {
-
                             continue;
                         }
                     }
                     else
                         continue;
-                       
-                    
                 }
 
                 //these are just whistles&bells, ignore them
@@ -554,19 +607,25 @@ namespace Infiks.Email
                         continue;
                 }
 
-                if (attstart == 0) 
+                if (header.Contains("quoted-printable"))
+                {
+
+                    Console.WriteLine("QP encoded attachment – not supported.");
+                    //attstart = 0;
+                    continue;
+                }
+
+                if (attstart == 0)
                     attstart = Content.IndexOf(part);
 
-                //string fileName = "test1";
-                /*******
                 
+                /*******
                  * Now we can have strings encoded in Base64 ("?b|B?") or in printable UTF8 ("?Q|q?")
                  * In first case we must decode it, in second – just other decode, simple as bozon catching. 
                  * But UTF names can broke if they are long and then multiline.
                  * To avoid this, first make one big string name.
                  * 
                  * UPDATE: there can be more than one type (Q or B) in one string AND ALSO NON ENCODED NOT MARKED ASCII SYMBOLS. Fuck this, MIME really should die.
-                 
                  ******/
 
                 string fileNameStr = match.Groups[2].Value;
@@ -673,6 +732,13 @@ namespace Infiks.Email
                 fileName = fileName.Replace("  ", "_").Replace(" ", "_").Replace("__","_");
                 fileName = fileName.Replace("_. ", ".");
                 fileName = fileName.Trim('_');
+
+                if (fileName.Contains(".html") || fileName.Contains(".htm") || fileName.Contains(".xml") ) //
+                {
+                    //attstart = 0;
+                    continue;
+                }
+
                 if (fileName.IndexOf('=') != -1)
                 {
 
@@ -692,6 +758,7 @@ namespace Infiks.Email
                 if (Regex.IsMatch(content, @"^[a-zA-Z0-9\+\/]*={0,2}$"))
                 {        
                      Console.WriteLine("Base64 content error");
+                     //attstart = 0;
                      continue;
                 }
                 
@@ -706,6 +773,7 @@ namespace Infiks.Email
                 catch (Exception)
                 {
                     Console.WriteLine("FromBase64String content decoding error");
+                    //attstart = 0;
                     continue;
                 }
 
@@ -735,26 +803,30 @@ namespace Infiks.Email
             string path = "";
             string tmpoutdir = outputDirectory;
 
-            if (sort)
-            {
-                //year
-                tmpdate[0] = (getdateMyyyy())[4];
-                //month
-                tmpdate[1] = (getdateMyyyy())[3];
-
-                string tmppth = outputDirectory + "\\" + tmpdate[0] + "\\" + tmpdate[1];
-                if (!Directory.Exists(tmppth)) Directory.CreateDirectory(tmppth);
-                outputDirectory += "\\" + tmpdate[0] + "\\" + tmpdate[1];
-            }
-
-
+            bool crdir = false;
+                       
             // Extract each attachment
             foreach (var attachment in Attachments)
             {
                 // Write bytes to output file
-                //uint dfn = 1;
+                if (!crdir && Attachments.Count() > 0 && sort) {
 
-                path = Path.Combine(outputDirectory, attachment.FileName);
+                    tmpdate = getdateMyyyy();
+                    string tmppth = outputDirectory + "\\" + tmpdate[0] + "\\" + tmpdate[1];
+                    if (!Directory.Exists(tmppth))
+                        Directory.CreateDirectory(tmppth);
+                    outputDirectory += "\\" + tmpdate[0] + "\\" + tmpdate[1];
+                    crdir = true;
+                }
+
+                try
+                {
+                    path = Path.Combine(outputDirectory, attachment.FileName);
+                }
+                catch {
+                    Console.WriteLine("Path problem, assistance needed.");
+                    Environment.Exit(-9);
+                }
 
                 //if two emails have identical flnms, we'll just overwrite it, that's not cool
                 if (File.Exists(path))
@@ -792,7 +864,7 @@ namespace Infiks.Email
 
 
             //and yes, I know, this code looks like shit. Still, it works.
-            if (attstart > 0 && bckppth != "") //
+            if (attstart > 0 && bckppth != "" && count > 0) //
             {
                 
                 File.Copy(FileName, Path.Combine(bckppth,Path.GetFileName(FileName)));
@@ -905,10 +977,10 @@ namespace Infiks.Email
 
                 }
                 else {
-                    
-                    if ( parts.Any(s => s.Contains("text/html"))) 
+
+                    if (parts.Any(s => s.Contains("text/html")))
                     {
-                    
+
                         int i = Array.FindIndex(parts, tmp => tmp.Contains("text/html"));
                         string tmpeml = parts[i];
 
@@ -957,8 +1029,15 @@ namespace Infiks.Email
                                 tmpeml = tmpeml.Replace("\r\n", "<br>");
                                 bettereml += tmpeml;
                             }
-                        }         
+                        }
                     }
+                    
+                    //eml body contains no text at all. But we need html to build our atts download list.
+                    else {
+
+                        bettereml += "<html><head><meta charset=\"UTF-8\" /></head><body>\r\n";
+                    }
+
                 }
 
                 bettereml.Replace("</html>",null).Replace("</body>",null);

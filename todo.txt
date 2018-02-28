@@ -1,4 +1,7 @@
-
+? filenames can contain "="
+? Content-Transfer-Encoding: quoted-printable in attachment
+? date errors
+? html atts?
 ? html parts can contain tables and markups, and they can be useful
 
 > add args check: correct paths and other
