@@ -1,7 +1,12 @@
 # eml-attachments
 
 This utility extracts attachments from .eml MIME files in batch mode.
+
 Также ниже описание на русском языке.
+
+Only BASE64 encoded attachments are supported. RFC5987 is not supported.
+
+
 
 Fork erikvdv1/eml-attachments respectively.
 Added many improvements in handling:
@@ -15,6 +20,8 @@ eml-attachments -i path/to/file.eml (-o output/directory (--deletefromorigin YES
 -i input file (required);
 
 -o output directory (optional);
+
+--xtrwhistls – extract inline elements, otherwise inline attachments will be ignored (optional).
 
 
 Next set of keys makes MODIFYING OF ORIGINAL MESSAGE.
