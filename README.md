@@ -15,6 +15,12 @@ eml-attachments -i path/to/file.eml (-o output/directory (--deletefromorigin YES
 
 -o output directory (optional);
 
+
+Next set of keys makes MODIFYING OF ORIGINAL MESSAGE.
+It creates simplified utf-8 version of message, deletes attachments from message and inserts links to unpacked attachments: file:///path/to/file file:///path/to/dir and ftp://path/to file with text IN RUSSIAN LANGUAGE. 
+Html formatting of original message will be lost. For main mail body, text/plain section will be copied from original.
+If original message contains tables, software tries to place it in original structure (from "<table> to </table>"), but this part of software is not working correctly with complicated HTMLs.
+
 --deletefromorigin YES: DELETES ORIGINAL MESSAGE AND REPLACES IT BY SIMPLE TEXT/HTML COPY IN UTF-8, with hyperlinks to attachment files. At you own risk! (optional);
 
 -b backup path: saves original message to given dir; required with --deletefromorigin;
