@@ -169,6 +169,10 @@ namespace Infiks.Email
                 emlcharset = emlcharsetmth.Groups[1].Value;
                 //emlcharsetmth = emlcharsetmth.NextMatch();
             }
+            else {
+                Console.WriteLine("Charset detection failed.");
+                Environment.Exit(-6);
+            }
 
             return emlcharset;
         }
@@ -607,12 +611,20 @@ namespace Infiks.Email
                         continue;
                 }
 
+                /*
                 if (header.Contains("quoted-printable"))
                 {
 
                     Console.WriteLine("QP encoded attachment – not supported.");
                     //attstart = 0;
                     continue;
+                }
+                */
+
+                if ( !header.Contains("Content-Transfer-Encoding: base64") ){
+
+                    Console.WriteLine("Not base64 encoded attachment.");
+                    Environment.Exit(-6);
                 }
 
                 if (attstart == 0)
@@ -729,6 +741,12 @@ namespace Infiks.Email
                     fileName = fileNameStr;
                 }
 
+                if (!fileName.Contains(".")) {
+
+                    Console.WriteLine("File name extension missing.");
+                    Environment.Exit(-11);
+                }
+
                 fileName = fileName.Replace("  ", "_").Replace(" ", "_").Replace("__","_");
                 fileName = fileName.Replace("_. ", ".");
                 fileName = fileName.Trim('_');
@@ -744,6 +762,12 @@ namespace Infiks.Email
 
                     Console.WriteLine("filename reading error (filename still containing '=')");
                     Environment.Exit(2);
+                }
+
+                foreach (char illchr in Path.GetInvalidFileNameChars()) {
+
+                    if (fileName.Contains(illchr))
+                        fileName = fileName.Replace(illchr, '_');
                 }
 
                 //string fileName = System.Text.Encoding.GetEncoding(20866).GetString(fileNameRaw);

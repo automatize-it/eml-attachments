@@ -1,12 +1,12 @@
 ? filenames can contain "="
 ? Content-Transfer-Encoding: quoted-printable in attachment
-? date errors
-? html atts?
-? html parts can contain tables and markups, and they can be useful
+? don't mess with tables?
 
 > add args check: correct paths and other
 
-
+V date errors
+V html atts?
+V html parts can contain tables and markups, and they can be useful
 V "ignorewhistles" option
 V when it's whitespace btwn two differenlty encoded name part's it'll be ignored. Not sure how to fix or is it neccessary 
 V check if output dir and backup dir are the same
