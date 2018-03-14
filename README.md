@@ -55,7 +55,9 @@ Looks like it's the only one utility for Windows that extracts attachments corre
 - если в оригинальном письме есть таблицы, будет произведена попытка вставить их без изменения внутреннего форматирования в новое письмо. Эта часть работает плохо;
 - после основного текста письма размещаются ссылки на распакованные вложения:
     Вложения: a href="file:///path" a href="ftp://path"
-    см. скриншоты.
+    см. статью о программе: http://automatize-it.blogspot.ru/2018/03/kak-hranit-vlozhenija-otdelno-ot-pochty.html
+    
+    
 
 Выявленные проблемы на данный момент:
 - html-вложения и xml-вложения не поддерживаются (код)
