@@ -54,8 +54,7 @@ Looks like it's the only one utility for Windows that extracts attachments corre
 - секция text/plain оригинального письма конвертируется в UTF-8 и вставляется в новое письмо;
 - если в оригинальном письме есть таблицы, будет произведена попытка вставить их без изменения внутреннего форматирования в новое письмо. Эта часть работает плохо;
 - после основного текста письма размещаются ссылки на распакованные вложения:
-    Вложения: a href="file:///path" a href="ftp://path"
-    см. статью о программе: http://automatize-it.blogspot.ru/2018/03/kak-hranit-vlozhenija-otdelno-ot-pochty.html
+    Вложения: a href="file:///path" a href="ftp://path
     
     
 
